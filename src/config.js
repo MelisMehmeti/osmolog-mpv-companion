@@ -87,7 +87,11 @@ class ConfigStore extends EventEmitter {
 
   watch() {
     if (this.watcher) return;
-    this.watcher = fs.watch(this.directory, (_event, filename) => {
+    // Windows temporary directories can use 8.3 aliases (for example RUNNER~1).
+    // libuv receives long filenames; watching an alias can abort Node in its
+    // relative-path assertion before JavaScript can handle the error.
+    const watchDirectory = fs.realpathSync.native(this.directory);
+    this.watcher = fs.watch(watchDirectory, (_event, filename) => {
       if (String(filename || "").toLowerCase() !== path.basename(this.file).toLowerCase()) return;
       clearTimeout(this.reloadTimer);
       this.reloadTimer = setTimeout(() => {

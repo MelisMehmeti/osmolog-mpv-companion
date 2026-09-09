@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Resolve Windows short folder paths before watching configuration changes, preventing a native file-watcher crash.
+- Validate Windows tests and packaging on main-branch pushes as well as releases; update GitHub Actions to supported runtimes.
+
 ## 1.2.4 — 2026-09-09
 
 - Set up MPV from Companion without editing configuration files. Select your MPV application if its configuration has not been detected yet.
