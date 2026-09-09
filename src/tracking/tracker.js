@@ -31,9 +31,11 @@ class TrackingEngine extends EventEmitter {
     this.sessionCreditedSeconds = 0;
     this.sessionModeSeconds = { active: 0, passive: 0 };
     this.languageOverride = null;
+    this.manualPaused = false;
   }
 
   currentMode() {
+    if (this.manualPaused) return null;
     if (this.player === "steam") return this.fileLoaded && this.properties.pause === false && this.language.languageCode
       ? this.properties.focused === true ? "active" : "passive" : null;
     if (!this.fileLoaded || this.seeking || this.properties.pause !== false ||
@@ -58,6 +60,11 @@ class TrackingEngine extends EventEmitter {
 
   snapshot() {
     return {
+      sessionId: this.sessionId,
+      fileLoaded: this.fileLoaded,
+      manualPaused: this.manualPaused,
+      paused: this.properties.pause === true,
+      muted: this.properties.mute === true || Number(this.properties.volume) <= 0,
       connected: true,
       playing: Boolean(this.currentMode()),
       languageCode: this.language.languageCode,
@@ -95,6 +102,13 @@ class TrackingEngine extends EventEmitter {
     return true;
   }
 
+  setPaused(paused, times = {}) {
+    this.advance(times);
+    this.manualPaused = paused === true;
+    this.transition(false, times);
+    this.emit("state", this.snapshot());
+  }
+
   updateProperty(name, value, times = {}) {
     if (!COUNTING_PROPERTIES.has(name) && !name.startsWith("current-tracks/")) return;
     this.advance(times);
@@ -109,6 +123,7 @@ class TrackingEngine extends EventEmitter {
     if (this.fileLoaded) this.endFile(times);
     this.advance(times);
     this.fileLoaded = true;
+    this.manualPaused = false;
     this.seeking = false;
     this.sessionId = uuid();
     this.filePath = String(metadata.path || "");

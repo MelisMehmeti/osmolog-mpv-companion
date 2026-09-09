@@ -18,8 +18,9 @@ class SteamTracker extends EventEmitter {
 
   resolveLanguage() {
     const override = this.config?.steam?.games?.[this.game?.appId]?.language;
-    return { languageCode: override || this.game?.configuredLanguage || null,
-      languageSource: override ? "game-override" : this.game?.configuredLanguage ? "steam-config" : "unassigned" };
+    const defaultLanguage = this.config?.playerLanguages?.steam;
+    return { languageCode: override || defaultLanguage || this.game?.configuredLanguage || null,
+      languageSource: override ? "game-override" : defaultLanguage ? "default" : this.game?.configuredLanguage ? "steam-config" : "unassigned" };
   }
 
   reason() {

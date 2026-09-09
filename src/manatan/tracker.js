@@ -17,7 +17,7 @@ class ManatanTracker extends EventEmitter {
       config: this.config,
       player: "manatan",
       resolveLanguage: (_path, config) => ({
-        languageCode: config?.defaultLanguage || "ja",
+        languageCode: config?.playerLanguages?.manatan || config?.defaultLanguage || "ja",
         languageSource: config?.defaultLanguage ? "default" : "unassigned"
       })
     });
@@ -88,6 +88,9 @@ class ManatanTracker extends EventEmitter {
   snapshot() {
     const playback = this.engine.snapshot();
     return {
+      sessionId: playback.sessionId,
+      manualPaused: playback.manualPaused,
+      muted: playback.muted,
       available: this.sensorState.available === true,
       connected: this.sensorState.appRunning === true,
       mediaSessionFound: this.sensorState.found === true,

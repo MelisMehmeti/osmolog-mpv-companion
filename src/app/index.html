@@ -1,94 +1,12 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Osmolog Companion</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <main id="appShell" class="app-shell" data-mode="expanded">
-    <section id="expandedWindow" class="expanded-window" aria-label="Osmolog Companion">
-      <header class="titlebar">
-        <span class="product-lockup"><img src="../../assets/osmolog-icon-small.svg" alt=""><span class="product-name">OSMOLOG COMPANION</span><span class="player-logos" aria-label="Supported players"><img src="../../assets/mpv.svg" alt="MPV" title="MPV"><img src="../../assets/manatan.png" alt="Manatan" title="Manatan"><img src="../../assets/steam.svg" alt="Steam" title="Steam"></span></span>
-        <span id="connectionStatus" class="connection-status"><i></i><b>STARTING</b></span>
-        <span class="window-actions">
-          <button id="minimizeButton" type="button" aria-label="Minimize to compact overlay">−</button>
-          <button id="closeButton" type="button" aria-label="Close to system tray">×</button>
-        </span>
-      </header>
-
-      <div class="window-body">
-        <section id="setupPanel" class="setup-panel" aria-live="polite">
-          <small id="setupEyebrow">GETTING READY</small>
-          <h1 id="setupTitle">Starting companion…</h1>
-          <p id="setupCopy">Connecting the local tracker.</p>
-          <div id="setupActions" class="setup-actions">
-            <button id="pairButton" class="primary-button" type="button">Open Osmolog</button>
-          </div>
-          <p id="setupFeedback" class="setup-feedback" role="status"></p>
-        </section>
-
-        <section id="trackingPanel" class="tracking-panel" hidden>
-          <div class="tracking-toolbar">
-            <div id="trackingSourceEyebrow" class="section-eyebrow">LOCAL MEDIA · TRACKING</div>
-            <label for="languageSelect"><span>Count time toward</span><select id="languageSelect" aria-describedby="trackingLanguageHelp"><option value="ja">Japanese</option><option value="en">English</option><option value="sv">Swedish</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ko">Korean</option><option value="zh">Chinese</option></select></label>
-          </div>
-          <p id="trackingLanguageHelp" class="tracking-language-help">This language receives your tracked time. It does not change the app or game language.</p>
-          <div class="now-playing">
-            <div id="sourceSymbol" class="source-symbol" aria-hidden="true"><img id="activePlayerIcon" src="../../assets/mpv.svg" alt=""></div>
-            <div class="media-copy"><h1 id="mediaTitle">No media loaded</h1><p><i id="modeDot"></i><span id="modeLabel">Ready to track</span></p></div>
-          </div>
-          <div class="metric-grid">
-            <div><small id="sessionTimeLabel">THIS FILE</small><strong id="fileTime">0s</strong></div>
-            <div><small id="todayLabel" title="All Osmolog sources for this language">OSMOLOG TODAY · JA</small><strong id="todayTime">0s</strong></div>
-            <div><small>PLAYBACK SPEED</small><strong id="speedValue">1.0×</strong></div>
-          </div>
-          <div class="attention-split"><div><span id="activeLabel">Active 0m</span><span id="passiveLabel">Passive 0m</span></div><div class="split-track"><i id="activeTrack"></i><em id="passiveTrack"></em></div></div>
-          <footer><span id="footerStatus">Closing keeps tracking in the tray.</span><span class="footer-actions"><button id="pairAgain" type="button" hidden>RECONNECT OSMOLOG</button><button id="openDashboard" type="button">OPEN DASHBOARD</button></span></footer>
-        </section>
-        <section class="mpv-setup" aria-label="MPV setup">
-          <button id="setupMpvButton" type="button">Set up MPV</button>
-          <p>Configure the connection automatically. If asked, choose your MPV application, then restart MPV.</p>
-          <p id="mpvSetupFeedback" role="status"></p>
-        </section>
-        <details id="steamSettings" class="steam-settings">
-          <summary>Steam game tracking <span id="steamSummary">Off</span></summary>
-          <fieldset id="steamControls">
-            <label class="steam-toggle"><input id="steamEnabled" type="checkbox">Track Steam games</label>
-            <p id="steamState" role="status">Steam tracking is off.</p>
-            <label for="steamIdleSeconds">Stop after no input<select id="steamIdleSeconds"><option value="0">Off · count while game is open</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select></label>
-            <div id="steamGameControls" hidden>
-              <p id="steamGameTitle"></p>
-              <label for="steamLanguage">Count game time toward<select id="steamLanguage" aria-describedby="steamLanguageHelp"><option value="">Suggested by Steam</option></select></label>
-              <label class="steam-toggle"><input id="steamExcluded" type="checkbox">Exclude this game</label>
-              <button id="steamPause" type="button">Pause tracking</button>
-            </div>
-          </fieldset>
-          <p id="steamLanguageHelp">Choose the language that receives this game’s tracked time in Osmolog. This does not change the game or app language. Your choice is saved per game.</p>
-          <p>Focused games count as active time; games running in the background count as passive. Idle time does not count. In-game pause menus cannot be detected; use Pause tracking for breaks. For long cutscenes or controllers without XInput, increase or turn off the idle limit.</p>
-          <p id="steamFeedback" role="status"></p>
-        </details>
-        <section class="companion-lifecycle" aria-label="Companion lifecycle and sync">
-          <label for="runOnlyWithMpvToggle">
-            <input id="runOnlyWithMpvToggle" type="checkbox">
-            <span><b>Automatically open when MPV opens</b><small id="autoLaunchDescription">It closes safely when MPV closes.</small></span>
-          </label>
-          <div class="companion-lifecycle-actions"><span id="autoLaunchStatus" role="status">Off</span><button id="syncNowButton" type="button">Sync now</button></div>
-          <p id="lifecycleFeedback" role="status" aria-live="polite"></p>
-        </section>
-      </div>
-      <div class="app-version-footer" aria-label="Companion version and updates">
-        <span id="appVersion">Osmolog Companion</span>
-        <div class="app-update-copy"><strong id="updateHeading" hidden></strong><p id="updateStatus" role="status" aria-live="polite"></p></div>
-        <button id="restartUpdateButton" type="button" hidden>Restart to update</button>
-      </div>
-    </section>
-
-    <button id="compactOverlay" class="compact-overlay" type="button" aria-label="Move companion; click to expand" hidden>
-      <i id="compactDot"></i><strong id="compactTime">0s</strong><span id="compactLanguage">JAPANESE</span>
-    </button>
-  </main>
-  <script src="renderer.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"><title>Osmolog Companion</title><link rel="stylesheet" href="styles.css"></head>
+<body><main id="appShell" class="app-shell" data-mode="expanded">
+<section id="expandedWindow" class="expanded-window" aria-label="Osmolog Companion">
+<header class="titlebar"><span class="brand"><img src="../../assets/osmolog-icon-small.svg" alt=""><b>OSMOLOG COMPANION</b></span><div class="window-actions"><button id="settingsButton" aria-label="Open settings" title="Settings">⚙</button><button id="minimizeButton" aria-label="Minimize to compact overlay">−</button><button id="closeButton" aria-label="Close to system tray">×</button></div></header>
+<div id="connectionBanner" class="disconnected" hidden><span id="connectionMessage">Connect to Osmolog to sync your time</span><button id="pairButton" class="secondary">Open Osmolog</button></div>
+<div class="window-body"><nav id="connections" class="connections" aria-label="Player connections"></nav><div id="pageContent"></div></div>
+<div id="feedback" class="notice" role="status" hidden></div>
+<aside id="updateBanner" class="update-banner" hidden><div class="update-copy"><strong id="updateHeading"></strong><p id="updateStatus" role="status"></p><progress id="updateProgress" max="100" hidden></progress></div><button id="restartUpdateButton" class="primary" hidden>Restart to update</button></aside>
+<footer class="app-version-footer"><span id="appVersion">Companion</span><span id="versionStatus">Starting…</span></footer>
+</section><button id="compactOverlay" class="compact-overlay" aria-label="Move companion; click to expand" hidden><i id="compactDot"></i><strong id="compactTime">0s</strong><span id="compactLanguage">JAPANESE</span></button>
+</main><script src="view-model.js"></script><script src="renderer.js"></script></body></html>

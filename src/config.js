@@ -21,6 +21,8 @@ const DEFAULTS = Object.freeze({
   port: 47823,
   extensionId: "PUT_EXTENSION_ID_HERE",
   defaultLanguage: "ja",
+  playerLanguages: { mpv: "", steam: "", manatan: "" },
+  desktop: { startWithWindows: false, startMinimized: false, keepInTray: true, openWith: { mpv: false, steam: false, manatan: false } },
   folderRules: [
     { match: "D:\\Media\\Japanese", language: "ja" },
     { match: "D:\\Media\\English", language: "en" }
@@ -45,6 +47,13 @@ function normalize(raw = {}) {
     port: Math.max(1024, Math.min(65531, Math.trunc(Number(raw.port) || DEFAULTS.port))),
     extensionId: String(raw.extensionId || DEFAULTS.extensionId).trim().slice(0, 128),
     defaultLanguage: languageCode(raw.defaultLanguage),
+    playerLanguages: Object.fromEntries(["mpv", "steam", "manatan"].map(player => [player, languageCode(raw.playerLanguages?.[player]) || ""])),
+    desktop: {
+      startWithWindows: raw.desktop?.startWithWindows === true,
+      startMinimized: raw.desktop?.startMinimized === true,
+      keepInTray: raw.desktop?.keepInTray !== false,
+      openWith: { mpv: raw.desktop?.openWith?.mpv === undefined ? raw.runOnlyWithMpv === true : raw.desktop.openWith.mpv === true, steam: raw.desktop?.openWith?.steam === true, manatan: raw.desktop?.openWith?.manatan === true }
+    },
     folderRules: (Array.isArray(raw.folderRules) ? raw.folderRules : DEFAULTS.folderRules)
       .map(rule => ({ match: String(rule?.match || "").trim(), language: languageCode(rule?.language) }))
       .filter(rule => rule.match && rule.language)

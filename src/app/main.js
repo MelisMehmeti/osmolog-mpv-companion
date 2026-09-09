@@ -10,6 +10,7 @@ const { CompanionService } = require("../service");
 const { companionExecutablePath, installMpvAutoLauncher, removeMpvAutoLauncher } = require("../mpv/auto-launch");
 const { createAutoUpdateController, isPortableBuild } = require("./auto-update");
 const { syncWithChrome } = require("./sync-controller");
+const { createDesktopSettings, shouldOpenForPlayer } = require("./desktop-settings");
 
 let mainWindow = null;
 let tray = null;
@@ -25,10 +26,12 @@ let detectedMpvConfigDirectory = "";
 let launcherStatus = { status: "off", message: "Automatic MPV start is off." };
 let updateController = null;
 let updateStatus = { state: "disabled" };
+let desktopSettings = null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 function sendState(state = latestState) {
+  const openForPlayer = state !== latestState && shouldOpenForPlayer(latestState, state, state.desktop);
   const distribution = isPortableBuild(process.env) ? "portable" : app.isPackaged ? "installed" : "development";
   latestState = {
     ...state,
@@ -40,6 +43,9 @@ function sendState(state = latestState) {
   };
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("companion-state", latestState);
   if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (openForPlayer && !mainWindow.isVisible() && !latestState.fullscreen) {
+    showExpanded(false);
+  }
   if (latestState.fullscreen && mainWindow.isVisible()) {
     hiddenForFullscreen = true;
     mainWindow.hide();
@@ -54,23 +60,25 @@ function updateLauncherStatus(status, message) {
   sendState();
 }
 
-function showExpanded() {
+function showExpanded(focus = true) {
   if (!mainWindow) return;
   const current = mainWindow.getBounds();
   if (windowMode === "compact") compactBounds = current;
   else expandedBounds = current;
   windowMode = "expanded";
   mainWindow.setAlwaysOnTop(false);
-  mainWindow.setResizable(false);
-  mainWindow.setBounds(expandedBounds || { x: current.x, y: current.y, width: 620, height: 540 }, true);
+  if (process.platform === "win32") mainWindow.setShape([]);
+  mainWindow.setMinimumSize(520, 520);
+  mainWindow.setResizable(true);
+  mainWindow.setBounds(expandedBounds || { x: current.x, y: current.y, width: 640, height: 560 }, true);
   mainWindow.webContents.send("window-mode", "expanded");
   if (latestState.fullscreen) {
     hiddenForFullscreen = true;
     mainWindow.hide();
     return;
   }
-  mainWindow.show();
-  mainWindow.focus();
+  if (focus) { mainWindow.show(); mainWindow.focus(); }
+  else mainWindow.showInactive();
 }
 
 function showCompact() {
@@ -80,7 +88,16 @@ function showCompact() {
   windowMode = "compact";
   const bounds = compactBounds || { x: current.x, y: current.y, width: 156, height: 42 };
   mainWindow.setResizable(false);
+  mainWindow.setMinimumSize(156, 42);
   mainWindow.setBounds({ ...bounds, width: 156, height: 42 }, true);
+  if (process.platform === "win32") {
+    // Opaque native windows support resizing; clip the compact badge to a capsule.
+    const shape = Array.from({ length: 42 }, (_, y) => {
+      const inset = Math.ceil(21 - Math.sqrt(Math.max(0, 21 * 21 - (y + 0.5 - 21) ** 2)));
+      return { x: inset, y, width: 156 - inset * 2, height: 1 };
+    });
+    mainWindow.setShape(shape);
+  }
   mainWindow.setAlwaysOnTop(true, "floating");
   mainWindow.webContents.send("window-mode", "compact");
   if (latestState.fullscreen) {
@@ -93,6 +110,7 @@ function showCompact() {
 
 function hideToTray() {
   hiddenForFullscreen = false;
+  if (service?.config?.desktop?.keepInTray === false) { void quitCompanion(); return; }
   mainWindow?.hide();
 }
 
@@ -225,19 +243,19 @@ function createTray() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 620,
-    height: 540,
-    minWidth: 156,
-    minHeight: 42,
+    width: 640,
+    height: 560,
+    minWidth: 520,
+    minHeight: 520,
     show: false,
     frame: false,
-    transparent: true,
-    resizable: false,
+    transparent: false,
+    resizable: true,
     maximizable: false,
     fullscreenable: false,
     hasShadow: false,
     roundedCorners: false,
-    backgroundColor: "#00000000",
+    backgroundColor: "#08151d",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -249,8 +267,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "index.html"));
   mainWindow.once("ready-to-show", () => {
     expandedBounds = mainWindow.getBounds();
-    if (latestState.fullscreen) hiddenForFullscreen = true;
-    else mainWindow.show();
+    // Startup visibility is applied after persisted settings have loaded.
+    if (service?.started || latestState.fatalError) showInitialWindow();
     sendState();
   });
   mainWindow.on("close", event => {
@@ -258,6 +276,13 @@ function createWindow() {
     event.preventDefault();
     hideToTray();
   });
+}
+
+function showInitialWindow() {
+  if (!mainWindow || mainWindow.webContents.isLoading()) return;
+  if (latestState.fatalError) mainWindow.show();
+  else if (latestState.fullscreen) hiddenForFullscreen = true;
+  else if (!process.argv.includes("--startup") && !service?.config?.desktop?.startMinimized) mainWindow.show();
 }
 
 function registerIpc() {
@@ -298,6 +323,10 @@ function registerIpc() {
   ipcMain.handle("set-extension-id", (_event, extensionId) => service.setExtensionId(extensionId));
   ipcMain.handle("set-language", (_event, languageCode) => service.setLanguage(languageCode));
   ipcMain.handle("configure-steam", (_event, patch) => service.configureSteam(patch));
+  ipcMain.handle("configure-desktop", (_event, patch) => desktopSettings?.configure(patch) || { ok: false, message: "Companion is starting. Try again." });
+  ipcMain.handle("set-player-language", (_event, player, code, sessionId) => service.setPlayerLanguage(player, code, sessionId));
+  ipcMain.handle("set-tracking-paused", (_event, player, paused, sessionId) => service.setTrackingPaused(player, paused, sessionId));
+  ipcMain.handle("check-for-updates", async () => ({ ok: await updateController?.check() === true }));
   ipcMain.handle("open-dashboard", () => openDashboard());
   ipcMain.handle("set-run-only-with-mpv", (_event, enabled) => enabled ? enableRunOnlyWithMpv() : disableRunOnlyWithMpv());
   ipcMain.handle("sync-now", () => syncNow());
@@ -309,7 +338,7 @@ function registerIpc() {
   });
 }
 
-app.on("second-instance", () => showExpanded());
+app.on("second-instance", (_event, argv) => { if (!argv.includes("--startup")) showExpanded(); });
 app.on("window-all-closed", () => {});
 app.on("before-quit", event => {
   if (!quitting) {
@@ -339,6 +368,7 @@ app.whenReady().then(async () => {
   });
   service.on("exit-requested", () => void quitCompanion());
   await service.start();
+  desktopSettings = createDesktopSettings({ app, service, setMpvStartup: enabled => enabled ? enableRunOnlyWithMpv() : disableRunOnlyWithMpv() });
   updateController = createAutoUpdateController({
     app,
     updater: autoUpdater,
@@ -360,10 +390,12 @@ app.whenReady().then(async () => {
     else updateLauncherStatus("needs-mpv", "Open MPV once so Osmolog can repair auto-start.");
   }
   sendState(service.publicState());
+  showInitialWindow();
 }).catch(async error => {
   await service?.shutdown("startup error").catch(() => null);
   latestState = { ready: false, fatalError: String(error?.message || error) };
   sendState(latestState);
+  showInitialWindow();
 });
 
 module.exports = { findChromeExecutable, isChromeRunning, launchChromeDashboard };

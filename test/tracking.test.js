@@ -52,6 +52,22 @@ function run(engine, clock, seconds) {
   for (let index = 0; index < seconds; index += 1) engine.tick(clock.advance(1));
 }
 
+test("manual tracking pause survives player updates and resumes without counting the break", () => {
+  const { engine, clock, segments } = createEngine();
+  run(engine, clock, 3);
+  engine.setPaused(true, clock.times());
+  assert.equal(segments[0].creditedSeconds, 3);
+  engine.updateProperty("pause", false, clock.times());
+  engine.updateProperty("focused", false, clock.times());
+  run(engine, clock, 20);
+  assert.equal(engine.snapshot().sessionSeconds, 3);
+  assert.equal(engine.snapshot().manualPaused, true);
+  engine.setPaused(false, clock.times());
+  run(engine, clock, 4);
+  assert.equal(engine.snapshot().sessionSeconds, 7);
+  assert.equal(engine.snapshot().sessionPassiveSeconds, 4);
+});
+
 test("a short fragment is delivered before its recoverable draft is cleared", () => {
   const { engine, clock, segments } = createEngine();
   const order = [];

@@ -1,0 +1,26 @@
+/* Native desktop layout; compact mode keeps its exact overlay dimensions. */
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;color:var(--text,#e9f0f3)}
+.app-shell{width:100%;height:100%}
+.expanded-window{width:100%;height:100%;margin:0;min-width:0;max-width:none;min-height:0;resize:none;overflow:hidden;border-radius:12px;box-shadow:none}
+.titlebar{-webkit-app-region:drag;height:52px}
+.window-actions{-webkit-app-region:no-drag;display:flex;align-items:center;gap:8px}
+.window-actions button{border:0;background:transparent;color:#9eb0bb;width:30px;height:32px;font-size:21px;border-radius:5px}
+.window-actions button:hover{background:#203541}.window-actions #closeButton:hover{background:#963442;color:white}
+.window-body{min-height:0;overflow-y:auto;padding:18px 22px 14px;flex:1}
+#pageContent{min-width:0}.session{padding:20px 0}.session-details h1{overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.timer{font-size:37px;margin:8px 0 10px}.activity-circle{font-style:normal;display:block;width:30px;height:30px}
+.stopped{color:var(--muted)}.split-bar{display:flex;background:#243e49}.split-bar #activeTrack{height:100%;background:var(--green)}.split-bar #passiveTrack{height:100%;background:var(--amber)}
+.setting-row{padding:10px 0;min-height:46px;font-size:13px}.setting-row b{font-size:13px;font-weight:600}.setting-row small{display:block;font-size:11px;line-height:1.5;color:#8fa5b1;margin-top:4px;max-width:355px}
+.setting-row select{max-width:175px}.setting-row>label{min-width:0}.player-status>div{display:flex;gap:9px}.settings-title{margin-bottom:10px}.settings-tabs{margin-bottom:2px}
+input.switch{appearance:none;position:relative;cursor:pointer;margin:0;width:34px;height:20px;padding:2px}
+input.switch:before{content:'';display:block;width:14px;height:14px;background:#c4d2da;border-radius:50%;transition:transform .15s}
+input.switch:checked{background:#35bccb;border-color:#35bccb}input.switch:checked:before{transform:translateX(14px);background:#09232d}input:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.text-button{border:0;background:transparent;color:#8dafbd;font-size:12px;padding:8px 4px}.today{margin-top:3px;padding-top:14px}.today strong{font-size:25px}.home-actions{margin-top:16px}
+.idle-state{padding:32px 0}.idle-state p{max-width:280px;margin:9px auto 0}.idle-state h1{font-size:23px}.connection-help{margin:0;font-size:12px}
+.notice{flex-shrink:0;max-height:50px;overflow:auto;margin:0 22px 10px;line-height:1.5}.update-banner{flex-shrink:0;margin-bottom:12px;padding:12px 14px}.update-copy{min-width:0;flex:1}.update-banner p{line-height:1.4}.update-banner.error{border-color:#96564f;background:#2d2023}.update-banner.error strong{color:#edada5}
+progress{display:block;width:100%;height:4px;border:0;margin-top:10px;appearance:none;background:#243e49}progress::-webkit-progress-bar{background:#243e49}progress::-webkit-progress-value{background:var(--cyan)}
+.app-version-footer{flex-shrink:0;height:42px;min-height:42px;border-top:1px solid var(--line);padding:10px 22px;display:flex;justify-content:space-between;align-items:center;color:#96acb9;font-size:12px;gap:14px}
+.compact-overlay{display:grid;width:156px;height:42px;grid-template-columns:12px auto minmax(0,1fr);align-items:center;gap:8px;padding:0 14px 0 12px;border:0;border-radius:21px;background:#081426;color:#f5f8fa;box-shadow:none;text-align:left;touch-action:none;user-select:none;cursor:grab}
+.compact-overlay>i{width:9px;height:9px;border-radius:50%;background:currentColor;color:var(--muted)}.compact-overlay>i.active{color:var(--green)}.compact-overlay>i.passive{color:var(--amber)}.compact-overlay>strong{font-size:14px;font-variant-numeric:tabular-nums}.compact-overlay>span{font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[hidden]{display:none!important}.app-shell[data-mode="compact"] .expanded-window{display:none}.app-shell[data-mode="compact"] .compact-overlay{display:grid!important}
+@media(max-height:555px){.window-body{padding-top:14px;padding-bottom:10px}.session{padding:15px 0}.idle-state{padding:24px 0}.setting-row{padding:8px 0}.settings-title{margin-bottom:6px}.settings-tabs{padding-bottom:7px}}

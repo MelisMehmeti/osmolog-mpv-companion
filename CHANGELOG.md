@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.2.5 — 2026-09-09
+
+- Use a compact, resizable window with MPV, Steam, and Manatan connection statuses across the top.
+- See the session title, aligned timer, active/passive totals, and a green, amber, or gray activity circle.
+- Find General and individual player settings behind the small settings button.
+- Pause and resume tracking for any player without pausing playback or losing counted time.
+- Start with Windows, choose when Companion opens, and save a separate tracking language for each player.
+- See download progress and a prominent Restart to update button.
+
 - Resolve Windows short folder paths before watching configuration changes, preventing a native file-watcher crash.
 - Validate Windows tests and packaging on main-branch pushes as well as releases; update GitHub Actions to supported runtimes.
 

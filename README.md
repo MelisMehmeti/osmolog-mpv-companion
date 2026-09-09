@@ -5,10 +5,19 @@ the native Manatan Windows app, and tracks local Steam games, then sends session
 Osmolog Chrome extension. It runs as a small Windows utility; the existing
 Osmolog dashboard remains the place for history, goals, Sources, and analytics.
 
-The companion shows only what is useful while watching: connection state,
-current title, language, file time, total Osmolog time today, playback speed,
-and the Active/Passive split. Minimize it to the same compact timer badge used
-by the extension, or close it to the system tray.
+The resizable window shows each player's connection state, the current title,
+tracking language, session time, and Active/Passive split. A green circle means
+active, amber means passive, and gray means counting has stopped. Pause tracking
+without pausing playback. Minimize to the compact timer or close to the tray.
+
+Use the gear button for **General**, **MPV**, **Steam**, and **Manatan** settings.
+**Start with Windows** starts Companion in the background at sign-in and initially
+enables all three **Open Companion with…** options. You can change them separately.
+MPV can launch a closed Companion through its setup script. Steam and Manatan
+reopen its window when detected while Companion runs in the tray; they cannot
+relaunch it after you choose Quit. Start minimized affects manual launches;
+Windows startup always begins in the tray. Turning off Keep Companion in the
+system tray makes the close button quit instead.
 
 ## Download
 
@@ -32,7 +41,7 @@ Requirements:
 
 ## Set up mpv once
 
-In Companion 1.2.4 or later, select **Set up MPV**. If asked, select `mpv.exe`
+In Companion settings, open **MPV → Set up MPV**. If asked, select `mpv.exe`
 or `mpv.net.exe`. Companion uses a previously detected configuration folder,
 an existing `portable_config` beside the selected application, or the standard
 per-user configuration folder. It preserves other settings and creates a backup
@@ -72,8 +81,8 @@ the companion and open Osmolog once to trust the new installation.
 
 ### Steam
 
-Open **Connections → Steam** or expand **Steam game tracking** in Companion.
-Enable tracking, bring a game window forward, and choose which language receives
+Open **Connections → Osmolog Companion → Steam** or **Settings → Steam** in Companion.
+Use **Set up Steam** if tracking has not been enabled, bring a game window forward, and choose which language receives
 its tracked time. Steam games count as **Active Gaming** while focused and
 **Passive Gaming** while running in the background, with configurable idle detection,
 manual pause/resume, per-game language overrides, and exclusions. In-game pause
@@ -94,13 +103,13 @@ Companion build containing Steam support; existing installed builds need updatin
 - Audio-only playback counts normally.
 - Playback speed is credited as real time multiplied by speed, clamped to
   1×–2× by default.
-- Changing Language in the companion updates the current file and becomes the
-  default for the next session.
+- Changing Count time toward on the session updates that file and its player's
+  default, or saves a per-game override for Steam. Player settings edit defaults.
 - **−** switches to the movable compact timer.
-- **×** keeps tracking in the Windows tray.
+- **×** keeps tracking in the Windows tray unless Keep Companion in the system tray is turned off.
 - The companion hides automatically while mpv is fullscreen.
-- Enable **Automatically open when MPV opens** to let mpv start the companion
-  and let the companion safely close after mpv closes.
+- Enable **Open Companion with MPV** to let mpv start the companion. Companion
+  stays available for other players when their startup options or Windows startup are enabled.
 - Select **Sync now** to send queued activity immediately. If Chrome is already
   open, Osmolog uses that running browser without opening another window. If
   Chrome is closed, the companion opens Osmolog once so it can reconnect.

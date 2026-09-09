@@ -16,6 +16,7 @@ const { SteamSensor } = require("./steam/sensor");
 const { SteamTracker } = require("./steam/tracker");
 const { appId } = require("./steam/library");
 const { languageCode } = require("./util");
+const { resolveLanguage } = require("./language/resolver");
 const { TrackingEngine } = require("./tracking/tracker");
 const { CompanionTransport, validExtensionId } = require("./transport/websocket-server");
 const { WebSocket } = require("ws");
@@ -122,6 +123,13 @@ class CompanionService extends EventEmitter {
       manatanMediaSessionFound: manatanPlayback.mediaSessionFound === true,
       manatanReaderAvailable: manatanPlayback.available === true,
       steam,
+      players: { mpv: { ...mpvPlayback, connected: this.mpvConnected }, manatan: manatanPlayback, steam },
+      desktop: this.config?.desktop || {},
+      defaultLanguage: this.config?.defaultLanguage || "ja",
+      playerLanguages: this.config?.playerLanguages || {},
+      sessionId: playback.sessionId || "",
+      manualPaused: playback.manualPaused === true,
+      muted: playback.muted === true,
       player,
       extensionConnected: (this.transport?.clients?.size || 0) > 0,
       paired: validExtensionId(this.config?.extensionId),
@@ -216,7 +224,7 @@ class CompanionService extends EventEmitter {
     }
 
     this.mpv = this.dependencies.mpv || new MpvIpcClient({ pipePath: PIPE_PATH, logger: this.logger });
-    this.tracker = new TrackingEngine({ config: this.config });
+    this.tracker = new TrackingEngine({ config: this.config, resolveLanguage: (file, config) => resolveLanguage(file, { ...config, defaultLanguage: config.playerLanguages?.mpv || config.defaultLanguage }) });
     this.overlay = new MpvOverlay(this.mpv, { config: this.config, logger: this.logger });
     this.focus = this.dependencies.focus || new WindowsFocusDetector({ logger: this.logger });
     this.manatanSensor = this.dependencies.manatanSensor || new ManatanMediaSessionSensor({ logger: this.logger });
@@ -380,6 +388,29 @@ class CompanionService extends EventEmitter {
     return { ok: true, scope: changedCurrentFile ? "file-and-default" : "default", state: this.publicState() };
   }
 
+  setPlayerLanguage(player, value, sessionId) {
+    const code = languageCode(value);
+    if (!["general", "mpv", "steam", "manatan"].includes(player) || (!code && value !== "") || (player === "general" && !code)) return { ok: false, message: "Choose a valid tracking language." };
+    const engine = player === "steam" ? this.steamTracker?.engine : player === "manatan" ? this.manatanTracker?.engine : this.tracker;
+    if (sessionId !== undefined) {
+      if (!engine?.fileLoaded || !sessionId || sessionId !== engine.sessionId || !code) return { ok: false, message: "This session has changed. Choose the language again." };
+      if (player === "steam") return this.configureSteam({ appId: this.steamTracker.game.appId, language: code });
+      engine.setLanguageOverride(code);
+    }
+    this.config = this.configStore.update(player === "general" ? { defaultLanguage: code } : { playerLanguages: { ...this.config.playerLanguages, [player]: code || "" } });
+    this.broadcastPlaybackState();
+    return { ok: true, state: this.publicState() };
+  }
+
+  setTrackingPaused(player, paused, sessionId) {
+    const engine = player === "steam" ? this.steamTracker?.engine : player === "manatan" ? this.manatanTracker?.engine : player === "mpv" ? this.tracker : null;
+    if (typeof paused !== "boolean" || !engine?.fileLoaded || !sessionId || sessionId !== engine.sessionId) return { ok: false, message: "This session has changed. Try again." };
+    if (player === "steam") this.steamTracker.setPaused(paused);
+    else engine.setPaused(paused);
+    this.broadcastPlaybackState();
+    return { ok: true, state: this.publicState() };
+  }
+
   configureSteam(patch = {}) {
     if (!patch || typeof patch !== "object" || Array.isArray(patch)) return { ok: false, message: "Invalid Steam settings." };
     const previous = this.config.steam || { enabled: false, idleSeconds: 300, games: {} };
@@ -442,6 +473,7 @@ class CompanionService extends EventEmitter {
   }
 
   scheduleExitAfterMpv() {
+    if (this.config?.desktop?.startWithWindows || this.config?.desktop?.openWith?.steam || this.config?.desktop?.openWith?.manatan) return;
     if (this.mpvExitTimer || this.shuttingDown) return;
     this.mpvExitTimer = setTimeout(async () => {
       this.mpvExitTimer = null;
