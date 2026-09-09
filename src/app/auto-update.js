@@ -28,11 +28,13 @@ function createAutoUpdateController(options = {}) {
   let intervalTimer = null;
   let checking = false;
   let started = false;
+  let status = { state: "disabled" };
+  let installing = false;
 
-  const publish = (state, details = {}) => onStatus({ state, ...details });
+  const publish = (state, details = {}) => { status = { state, ...details }; onStatus(status); };
 
   async function check() {
-    if (!started || checking) return false;
+    if (!started || checking || installing || status.state === "ready") return false;
     checking = true;
     try {
       await updater.checkForUpdates();
@@ -61,10 +63,16 @@ function createAutoUpdateController(options = {}) {
     started = true;
     updater.autoDownload = true;
     updater.autoInstallOnAppQuit = true;
+    updater.autoRunAppAfterInstall = true;
     updater.allowPrerelease = false;
     updater.allowDowngrade = false;
     updater.on("checking-for-update", () => publish("checking"));
     updater.on("update-available", info => publish("downloading", { version: String(info?.version || "") }));
+    updater.on("download-progress", progress => {
+      if (status.state !== "downloading") return;
+      const percent = Number(progress?.percent);
+      publish("downloading", { version: status.version, ...(Number.isFinite(percent) ? { percent: Math.max(0, Math.min(100, Math.round(percent))) } : {}) });
+    });
     updater.on("update-not-available", () => publish("current"));
     updater.on("update-downloaded", info => {
       const version = String(info?.version || "");
@@ -93,7 +101,27 @@ function createAutoUpdateController(options = {}) {
     intervalTimer = null;
   }
 
-  return Object.freeze({ check, start, stop });
+  async function restartAndInstall() {
+    if (!started || installing || status.state !== "ready") return { ok: false, message: "No downloaded update is ready to install." };
+    installing = true;
+    const version = status.version;
+    publish("preparing", { version });
+    try {
+      await options.beforeInstall?.();
+      publish("installing", { version });
+      // Show the installer and reopen Companion after it finishes.
+      updater.quitAndInstall(false, true);
+      if (status.state === "error") return { ok: false, message: "Could not start the installer. Restart Companion and try again." };
+      stop();
+      return { ok: true };
+    } catch (error) {
+      logger.warn?.(`Could not install update: ${String(error?.message || error)}`);
+      publish("error", { message: "Could not prepare the update. Restart Companion and try again." });
+      return { ok: false, message: status.message };
+    } finally { installing = false; }
+  }
+
+  return Object.freeze({ check, start, stop, restartAndInstall });
 }
 
 module.exports = {

@@ -16,7 +16,7 @@ class CompanionTransport extends EventEmitter {
   constructor(options = {}) {
     super();
     this.host = "127.0.0.1";
-    this.startPort = options.port || 47823;
+    this.startPort = options.port ?? 47823;
     this.extensionId = options.extensionId;
     this.logger = options.logger || console;
     this.server = null;
@@ -63,11 +63,12 @@ class CompanionTransport extends EventEmitter {
 
   async start() {
     let lastError;
-    for (let port = this.startPort; port <= this.startPort + 4; port += 1) {
+    const lastPort = this.startPort === 0 ? 0 : this.startPort + 4;
+    for (let port = this.startPort; port <= lastPort; port += 1) {
       try {
         await this.listen(port);
-        this.port = port;
-        return port;
+        this.port = this.server.address().port;
+        return this.port;
       } catch (error) {
         lastError = error;
         if (error.code !== "EADDRINUSE") throw error;

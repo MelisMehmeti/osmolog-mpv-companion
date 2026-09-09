@@ -8,9 +8,12 @@ const { CompanionTransport } = require("../src/transport/websocket-server");
 
 test("transport accepts only the configured Chrome extension Origin", async t => {
   const extensionId = "abcdefghijklmnopabcdefghijklmnop";
-  const transport = new CompanionTransport({ port: 48723, extensionId });
+  const transport = new CompanionTransport({ port: 0, extensionId });
   const port = await transport.start();
   t.after(() => transport.close());
+  assert(port > 0);
+  assert.equal(port, transport.server.address().port);
+  assert.equal(port, transport.port);
   const allowed = new WebSocket(`ws://127.0.0.1:${port}`, { origin: `chrome-extension://${extensionId}` });
   const helloPromise = once(allowed, "message");
   await once(allowed, "open");
@@ -26,7 +29,7 @@ test("transport accepts only the configured Chrome extension Origin", async t =>
 test("pairing captures one Chrome extension Origin and closes again", async t => {
   const extensionId = "fefhfpppnnlocjddkgnaoknbhlmklngi";
   const otherExtensionId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const transport = new CompanionTransport({ port: 48728, extensionId: "PUT_EXTENSION_ID_HERE" });
+  const transport = new CompanionTransport({ port: 0, extensionId: "PUT_EXTENSION_ID_HERE" });
   const port = await transport.start();
   t.after(() => transport.close());
 

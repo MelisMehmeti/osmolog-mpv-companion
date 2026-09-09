@@ -82,3 +82,48 @@ test("portable builds stay manual-update only", () => {
   assert.deepEqual(statuses, [{ state: "portable" }]);
   assert.equal(updater.checks, 0);
 });
+
+test("restart waits for activity to save, prevents duplicate installs, and reopens after installation", async () => {
+  const updater = new FakeUpdater();
+  const statuses = [], installed = [];
+  let finishSaving;
+  const saved = new Promise(resolve => { finishSaving = resolve; });
+  updater.quitAndInstall = (...args) => installed.push(args);
+  const controller = createAutoUpdateController({ app: { isPackaged: true }, platform: "win32", environment: {}, updater,
+    beforeInstall: () => saved, onStatus: value => statuses.push(value) });
+  controller.start();
+  assert.equal((await controller.restartAndInstall()).ok, false);
+  updater.emit("update-available", { version: "1.3.0" });
+  updater.emit("download-progress", { percent: 42.4 });
+  assert.deepEqual(statuses.at(-1), { state: "downloading", version: "1.3.0", percent: 42 });
+  updater.emit("update-downloaded", { version: "1.3.0" });
+  assert.equal(await controller.check(), false, "a periodic check must not hide the restart action");
+  const installation = controller.restartAndInstall();
+  assert.equal(statuses.at(-1).state, "preparing");
+  assert.deepEqual(installed, [], "the installer cannot run before saving finishes");
+  assert.equal((await controller.restartAndInstall()).ok, false);
+  finishSaving();
+  assert.equal((await installation).ok, true);
+  assert.equal(statuses.at(-1).state, "installing");
+  assert.deepEqual(installed, [[false, true]]);
+  assert.equal(updater.autoRunAppAfterInstall, true);
+  controller.stop();
+});
+
+test("a failed save prevents installation and a synchronous installer error is not reported as success", async () => {
+  for (const failSaving of [true, false]) {
+    const updater = new FakeUpdater();
+    const statuses = [];
+    let calls = 0;
+    updater.quitAndInstall = () => { calls++; updater.emit("error", new Error("Installer unavailable")); };
+    const controller = createAutoUpdateController({ app: { isPackaged: true }, platform: "win32", environment: {}, updater,
+      logger: { warn() {}, info() {} }, beforeInstall: async () => { if (failSaving) throw new Error("Journal unavailable"); },
+      onStatus: value => statuses.push(value) });
+    controller.start();
+    updater.emit("update-downloaded", { version: "1.3.0" });
+    assert.equal((await controller.restartAndInstall()).ok, false);
+    assert.equal(calls, failSaving ? 0 : 1);
+    assert.equal(statuses.at(-1).state, "error");
+    controller.stop();
+  }
+});

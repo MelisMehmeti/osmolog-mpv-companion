@@ -12,7 +12,8 @@ third-party website, or network request to Steam is needed.
 3. Enable **Track Steam games** in the dashboard or expand **Steam game
    tracking** in Companion and enable it there.
 4. Open a locally installed Steam game and bring its window forward.
-5. Check **Language for this game**. Steam's configured language is a hint;
+5. Check **Count game time toward**. This chooses the language receiving tracked
+   time in Osmolog, and does not change the game or Companion language. Steam's configured language is a hint;
    choose an override if the game's audio or text uses a different language.
    If no language is available, no time counts until one is chosen.
 
@@ -27,16 +28,16 @@ automatically; start Companion before playing.
 | Signal | Behavior |
 | --- | --- |
 | Recognized game window in the foreground | Counts active Gaming time at 1× real time |
-| Alt-tab, minimized window, or inaccessible foreground window | Stops counting; no passive Gaming time |
+| Alt-tab or minimized game still running | Counts passive Gaming time at 1× real time, subject to the same idle limit, pause, and exclusions |
 | No keyboard, mouse, or supported controller input for the idle limit | Stops counting until input resumes |
-| Pause tracking | Stops immediately; Resume tracking restarts when the game is focused |
+| Pause tracking | Stops immediately; Resume tracking counts again while the game is running, subject to idle and exclusion settings |
 | In-game pause menu | Not detected universally; use manual pause or the idle limit |
 | PC sleep or a sampling gap over five seconds | Skips the unobserved gap |
 | Game closed or switched | Finalizes the old session; a different game starts a new session |
 | Unknown language or excluded game | Does not count |
 
 The default idle limit is five minutes. Choose a longer limit for visual novels
-and long cutscenes, or turn it off to count all focused time. Input observation
+and long cutscenes, or turn it off to count while the detected game remains open. Input observation
 uses `GetLastInputInfo` and XInput, including held buttons/sticks with deadzones
 to avoid ordinary analog drift. Controllers without XInput or a keyboard/mouse
 mapping are not guaranteed to reset idle. There is no audio requirement: silent

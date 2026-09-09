@@ -30,10 +30,9 @@ class SteamTracker extends EventEmitter {
     if (this.config.steam.games?.[this.game.appId]?.excluded) return "excluded";
     if (this.manualPaused) return "manual-pause";
     if (!this.resolveLanguage().languageCode) return "language-required";
-    if (!this.sensorState.focused) return "unfocused";
     const idle = this.sensorState.idleSeconds;
     if (this.config.steam.idleSeconds > 0 && (!Number.isFinite(idle) || idle >= this.config.steam.idleSeconds)) return "idle";
-    return "tracking";
+    return this.sensorState.focused ? "tracking" : "tracking-passive";
   }
 
   updateConfig(config) {
@@ -70,11 +69,12 @@ class SteamTracker extends EventEmitter {
 
   applyState(times = {}) {
     if (this.engine.fileLoaded) {
-      // Pause first so bringing a window forward cannot start counting with an
-      // old idle/language/exclusion decision between property updates.
-      const counting = this.reason() === "tracking";
-      this.engine.updateProperty("pause", !counting, times);
-      this.engine.updateProperty("focused", counting, times);
+      // Stop before changing focus, and resume only after focus is current.
+      // This avoids creating a tiny passive segment when a focused game starts.
+      const counting = ["tracking", "tracking-passive"].includes(this.reason());
+      if (!counting) this.engine.updateProperty("pause", true, times);
+      this.engine.updateProperty("focused", this.sensorState.focused === true, times);
+      if (counting) this.engine.updateProperty("pause", false, times);
     }
     this.emit("connection", this.snapshot());
   }
@@ -93,7 +93,7 @@ class SteamTracker extends EventEmitter {
       languageSource: this.game ? this.resolveLanguage().languageSource : "unassigned",
       languageOverride: this.config?.steam?.games?.[this.game?.appId]?.language || "",
       configuredLanguage: this.game?.configuredLanguage || "", excluded: this.config?.steam?.games?.[this.game?.appId]?.excluded === true,
-      reason: this.reason(), manualPaused: this.manualPaused, paused: this.reason() !== "tracking",
+      reason: this.reason(), manualPaused: this.manualPaused, paused: !["tracking", "tracking-passive"].includes(this.reason()),
       idleSeconds: Number.isFinite(this.sensorState.idleSeconds) ? Math.floor(this.sensorState.idleSeconds) : null,
       idleThresholdSeconds: this.config?.steam?.idleSeconds ?? 300,
       controllerSupported: this.sensorState.controllerSupported === true, fileLoaded: this.engine.fileLoaded,

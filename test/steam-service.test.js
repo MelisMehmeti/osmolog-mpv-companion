@@ -8,12 +8,13 @@ const { EventEmitter, once } = require("node:events");
 const { WebSocket } = require("ws");
 const { ConfigStore } = require("../src/config");
 const { CompanionService } = require("../src/service");
+const { CompanionTransport } = require("../src/transport/websocket-server");
 
 test("real Companion transport confirms controls, journals Steam time, replays offline events and acknowledges delivery", async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "osmolog-steam-service-"));
   const store = new ConfigStore({ directory }); store.load();
   const extensionId = "abcdefghijklmnopabcdefghijklmnop";
-  store.update({ port: 49000 + Math.floor(Math.random() * 1000), extensionId, steam: { enabled: false } });
+  store.update({ extensionId, steam: { enabled: false } });
   const passiveSensor = () => Object.assign(new EventEmitter(), { start() {}, stop() {} });
   let enabled = false;
   const sensor = { setEnabled(value) { enabled = value; }, stop() { enabled = false; }, sample() {
@@ -21,6 +22,8 @@ test("real Companion transport confirms controls, journals Steam time, replays o
       game: enabled ? { appId: "10", title: "Fixture game", configuredLanguage: "ja" } : null };
   } };
   const service = new CompanionService({ configStore: store, dependencies: {
+    // Keep the real WebSocket transport, with an available port assigned by Windows.
+    transport: new CompanionTransport({ port: 0, extensionId }),
     mpv: passiveSensor(), manatanSensor: passiveSensor(), steamSensor: sensor, focus: { isProcessFocused: () => false }
   } });
   let socket;

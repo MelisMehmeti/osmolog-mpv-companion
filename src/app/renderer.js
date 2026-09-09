@@ -36,6 +36,7 @@ function createPreviewBridge() {
   const publish = () => stateListeners.forEach(listener => listener(previewState));
   return Object.freeze({
     getState: async () => previewState,
+    setupMpv: async () => ({ ok: true, message: "MPV is set up. Close and reopen MPV to connect." }),
     onState: listener => stateListeners.push(listener),
     onWindowMode: listener => modeListeners.push(listener),
     windowAction: action => {
@@ -55,11 +56,22 @@ function createPreviewBridge() {
       return { ok: true, message: previewState.autoLaunchMessage, state: previewState };
     },
     syncNow: async () => ({ ok: true, message: "Everything is already synced." }),
+    restartForUpdate: async () => ({ ok: false, message: "Updates are not installed in preview mode." }),
     openDashboard: async () => false
   });
 }
 
 const companionApi = window.osmolog || createPreviewBridge();
+byId("setupMpvButton").addEventListener("click", async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  byId("mpvSetupFeedback").textContent = "Setting up MPV…";
+  try {
+    const result = await companionApi.setupMpv();
+    byId("mpvSetupFeedback").textContent = result?.message || "Could not set up MPV. Try again.";
+  } catch { byId("mpvSetupFeedback").textContent = "Could not set up MPV. Try again."; }
+  finally { button.disabled = false; }
+});
 
 function duration(seconds) {
   const value = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -118,7 +130,7 @@ function render(next) {
   }
 
   const languageCode = state.languageCode || (state.player === "steam" ? "" : "ja");
-  const languageName = LANGUAGE_NAMES[languageCode] || languageCode.toUpperCase() || "Choose language";
+  const languageName = LANGUAGE_NAMES[languageCode] || languageCode.toUpperCase() || "Choose tracking language";
   if (document.activeElement !== byId("languageSelect")) byId("languageSelect").value = languageCode;
   const sourceLabel = state.player === "steam" ? "STEAM" : state.player === "manatan" ? "MANATAN" : "MPV";
   byId("activePlayerIcon").setAttribute("src", state.player === "steam" ? "../../assets/steam.svg" : state.player === "manatan" ? "../../assets/manatan.png" : "../../assets/mpv.svg");
@@ -161,12 +173,21 @@ function render(next) {
     idle: "Installed version · updates download automatically.",
     checking: "Checking for a companion update…",
     current: "Companion is up to date.",
-    downloading: `Downloading Companion${updateVersion} in the background…`,
-    ready: `Companion${updateVersion} is ready and will install after this app closes.`,
+    downloading: `Downloading${Number.isFinite(update.percent) ? ` · ${update.percent}%` : ""}. You can keep tracking until it is ready.`,
+    ready: "Restart to install. Your activity will be saved. Closing × only hides Companion.",
+    preparing: "Saving your activity before Companion closes…",
+    installing: "Companion will close, install the update, and reopen automatically.",
     error: "Could not check for updates; the companion will retry automatically."
   };
-  byId("updateStatus").textContent = updateMessages[update.state] || updateMessages.disabled;
+  byId("updateStatus").textContent = update.state === "error" && update.message ? "Update failed. Restart Companion to try again." : updateMessages[update.state] || updateMessages.disabled;
   byId("updateStatus").className = update.state === "ready" ? "is-ready" : update.state === "error" ? "is-error" : "";
+  const updateHeadings = { downloading: `Downloading update${updateVersion}`, ready: `Update${updateVersion} ready · restart required`, preparing: "Preparing to update…", installing: `Installing update${updateVersion}…` };
+  byId("updateHeading").textContent = updateHeadings[update.state] || "";
+  byId("updateHeading").hidden = !updateHeadings[update.state];
+  byId("restartUpdateButton").hidden = !["ready", "preparing", "installing"].includes(update.state);
+  byId("restartUpdateButton").disabled = update.state !== "ready";
+  byId("restartUpdateButton").textContent = update.state === "preparing" ? "Saving…" : update.state === "installing" ? "Installing…" : "Restart to update";
+  byId("appShell").dataset.updateActive = Boolean(updateHeadings[update.state]);
 
   byId("compactTime").textContent = duration(state.sessionSeconds);
   byId("compactLanguage").textContent = languageName.toUpperCase();
@@ -182,7 +203,7 @@ function render(next) {
   }
   byId("steamGameControls").hidden = !steam.appId;
   byId("steamGameTitle").textContent = steam.title || "Steam game";
-  byId("steamLanguage").options[0].textContent = `Steam setting · ${LANGUAGE_NAMES[steam.configuredLanguage] || steam.configuredLanguage || "unknown"}`;
+  byId("steamLanguage").options[0].textContent = `Suggested by Steam · ${LANGUAGE_NAMES[steam.configuredLanguage] || steam.configuredLanguage || "unknown"}`;
   if (document.activeElement !== byId("steamLanguage")) byId("steamLanguage").value = steam.languageOverride || "";
   byId("steamExcluded").checked = steam.excluded === true;
   byId("steamPause").textContent = steam.manualPaused ? "Resume tracking" : "Pause tracking";
@@ -191,14 +212,14 @@ function render(next) {
 function steamReason(steam = {}) {
   return ({ disabled: "Steam tracking is off", unavailable: "Windows activity detection is unavailable", "steam-not-found": "Looking for Steam",
     waiting: "Open a Steam game and bring its window forward", excluded: "This game is excluded", "manual-pause": "Tracking paused by you",
-    "language-required": "Choose this game’s language", unfocused: "Game in background · timer stopped", idle: "Idle · timer stopped", tracking: "Counting Gaming time" })[steam.reason] || "Steam tracking is off";
+    "language-required": "Choose a language to count game time toward", unfocused: "Game in background · timer stopped", idle: "Idle · timer stopped", tracking: "Counting active Gaming time", "tracking-passive": "Game in background · counting passive Gaming time" })[steam.reason] || "Steam tracking is off";
 }
 
 for (const [code, name] of Object.entries(LANGUAGE_NAMES)) {
   byId("steamLanguage").add(new Option(name, code));
   if (![...byId("languageSelect").options].some(option => option.value === code)) byId("languageSelect").add(new Option(name, code));
 }
-byId("languageSelect").add(new Option("Choose language", ""));
+byId("languageSelect").add(new Option("Choose tracking language", ""));
 async function updateSteam(patch) {
   byId("steamControls").disabled = true;
   try {
@@ -249,9 +270,9 @@ byId("pairAgain").addEventListener("click", async () => {
 byId("languageSelect").addEventListener("change", async event => {
   if (!event.target.value) return;
   const result = await companionApi.setLanguage(event.target.value);
-  byId("footerStatus").textContent = result.scope === "game" ? "Language saved for this Steam game." : result.scope === "file-and-default"
-    ? "Language changed and saved for future MPV sessions."
-    : "Default language saved for future MPV sessions.";
+  byId("footerStatus").textContent = result.scope === "game" ? "Tracking language saved for this Steam game." : result.scope === "file-and-default"
+    ? "Tracking language changed and saved for future MPV sessions."
+    : "Default tracking language saved for future MPV sessions.";
 });
 byId("openDashboard").addEventListener("click", async () => {
   const opened = await companionApi.openDashboard();
@@ -275,6 +296,23 @@ byId("syncNowButton").addEventListener("click", async event => {
   byId("lifecycleFeedback").textContent = result?.message || "Could not sync right now.";
   button.textContent = "Sync now";
   button.disabled = false;
+});
+
+byId("restartUpdateButton").addEventListener("click", async () => {
+  byId("restartUpdateButton").disabled = true;
+  byId("restartUpdateButton").textContent = "Saving…";
+  try {
+    const result = await companionApi.restartForUpdate();
+    if (!result?.ok) {
+      byId("updateStatus").textContent = result?.message || "Could not start the update. Restart Companion and try again.";
+      byId("restartUpdateButton").disabled = state.updateStatus?.state !== "ready";
+      byId("restartUpdateButton").textContent = "Restart to update";
+    }
+  } catch {
+    byId("updateStatus").textContent = "Could not start the update. Restart Companion and try again.";
+    byId("restartUpdateButton").disabled = false;
+    byId("restartUpdateButton").textContent = "Restart to update";
+  }
 });
 
 companionApi.onState(render);

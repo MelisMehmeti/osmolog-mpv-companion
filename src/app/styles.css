@@ -51,6 +51,7 @@ select:focus { border-color: var(--cyan); }
 .section-eyebrow { color: var(--secondary); }
 .tracking-toolbar label { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; }
 .tracking-toolbar select { width: 142px; height: 34px; padding: 0 9px; }
+.tracking-language-help { margin: 0 4px 12px; color: var(--secondary); font-size: 11px; line-height: 1.4; }
 .now-playing { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 15px; min-height: 112px; padding: 17px; border: 1px solid var(--border); border-radius: 9px 9px 0 0; background: var(--surface); }
 .source-symbol { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #157c9b; border-radius: 50%; color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
 .source-symbol img { display: block; width: 28px; height: 28px; object-fit: contain; }
@@ -99,8 +100,22 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .app-version-footer { display: flex; height: 52px; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 20px; border-top: 1px solid var(--border); background: var(--bg); color: var(--secondary); font-size: 11px; line-height: 1.4; }
 #appVersion { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .app-version-footer #updateStatus { font-size: 11px; text-align: right; }
+.app-update-copy { min-width: 0; }
+#updateHeading { display: block; margin-bottom: 5px; color: var(--cyan); font-size: 12px; }
+#restartUpdateButton { min-height: 38px; padding: 8px 12px; border: 1px solid var(--cyan); border-radius: 7px; background: var(--cyan); color: var(--bg); font-size: 12px; font-weight: 700; }
+#restartUpdateButton:disabled { cursor: wait; opacity: .7; }
+.app-shell[data-update-active="true"] .window-body { height: calc(100% - 155px); }
+.app-shell[data-update-active="true"] .app-version-footer { display: grid; height: 104px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 1fr auto; gap: 4px 18px; padding: 12px 20px; background: var(--surface-2); border-top-color: var(--cyan); }
+.app-shell[data-update-active="true"] .app-update-copy { grid-column: 1; grid-row: 1; }
+.app-shell[data-update-active="true"] #updateStatus { text-align: left; }
+.app-shell[data-update-active="true"] #appVersion { grid-column: 1; grid-row: 2; color: var(--muted); font-size: 10px; }
+.app-shell[data-update-active="true"] #restartUpdateButton { grid-column: 2; grid-row: 1 / span 2; }
 .setup-panel { flex: 1 0 235px; }
 .tracking-panel, .companion-lifecycle { flex-shrink: 0; }
+.mpv-setup { flex-shrink: 0; padding: 10px 0; font-size: 12px; }
+.mpv-setup button { padding: 8px 14px; border: 1px solid var(--cyan); border-radius: 7px; background: transparent; color: var(--cyan); font-weight: 700; }
+.mpv-setup p { margin: 8px 0 0; color: var(--secondary); line-height: 1.5; }
+.mpv-setup p:empty { display: none; }
 .steam-settings { flex-shrink: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); font-size: 12px; }
 .steam-settings summary { cursor: pointer; color: var(--text); font-weight: 700; }
 .steam-settings summary span { float: right; color: var(--cyan); }

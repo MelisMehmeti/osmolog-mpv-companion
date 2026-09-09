@@ -182,7 +182,8 @@ class CompanionService extends EventEmitter {
     this.config = this.configStore.load();
     this.configStore.watch();
     this.configStore.on("warning", message => this.logger.warn(message));
-    if (await existingCompanionAt(this.config.port, this.config.extensionId)) {
+    this.transport = this.dependencies.transport || new CompanionTransport({ port: this.config.port, extensionId: this.config.extensionId, logger: this.logger });
+    if (this.transport.startPort !== 0 && await existingCompanionAt(this.transport.startPort, this.config.extensionId)) {
       throw new Error("Another Osmolog companion is already running. Close the older PowerShell companion, then restart this app.");
     }
 
@@ -199,7 +200,6 @@ class CompanionService extends EventEmitter {
       this.logger.info(`Recovered an interrupted ${recoveredDraft.player || "mpv"} segment.`);
     }
 
-    this.transport = new CompanionTransport({ port: this.config.port, extensionId: this.config.extensionId, logger: this.logger });
     this.transport.on("warning", message => this.logger.warn(message));
     this.transport.on("client-count", () => this.publish());
     this.transport.on("pairing", () => this.publish());

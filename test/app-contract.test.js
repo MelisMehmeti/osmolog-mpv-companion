@@ -68,7 +68,8 @@ test("lifecycle controls expose auto-start and in-place sync without technical p
   assert.match(main, /syncWithChrome/);
   assert.match(main, /createAutoUpdateController/);
   assert.match(renderer, /Portable version · download updates manually/);
-  assert.match(renderer, /will install after this app closes/);
+  assert.match(renderer, /restart required/);
+  assert.match(renderer, /Closing × only hides Companion/);
 });
 
 test("before-connection UI automatically discovers Osmolog without exposing extension IDs", () => {

@@ -40,7 +40,7 @@ completed segments share the same journal and acknowledgement protocol.
 An opt-in local library scanner matches Steam installation directories to the
 foreground executable. Windows input timing and XInput state drive idle detection;
 game language comes from the local Steam manifest or a per-game user override.
-Steam uses active-only Gaming segments at real time, with manual pause and game
+Steam uses active and passive Gaming segments at real time based on focus, with manual pause and game
 exclusions. It skips unobserved gaps over five seconds. It shares the existing
 service, journal, and paired transport; see [Steam design and limits](STEAM.md).
 

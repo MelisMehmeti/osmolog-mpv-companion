@@ -34,8 +34,8 @@ class TrackingEngine extends EventEmitter {
   }
 
   currentMode() {
-    if (this.player === "steam") return this.fileLoaded && this.properties.pause === false &&
-      this.properties.focused === true && this.language.languageCode ? "active" : null;
+    if (this.player === "steam") return this.fileLoaded && this.properties.pause === false && this.language.languageCode
+      ? this.properties.focused === true ? "active" : "passive" : null;
     if (!this.fileLoaded || this.seeking || this.properties.pause !== false ||
       this.properties["core-idle"] !== false || this.properties["paused-for-cache"] === true ||
       this.properties.mute === true || Number(this.properties.volume) <= 0 ||

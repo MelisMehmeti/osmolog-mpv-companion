@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.4 — 2026-09-09
+
+- Set up MPV from Companion without editing configuration files. Select your MPV application if its configuration has not been detected yet.
+- Preserve other MPV settings and back up the previous configuration before saving the connection setting.
+- Show a clear reminder to restart MPV after setup.
+
+## 1.2.3 — 2026-09-09
+
+- Count running Steam games as passive Gaming time when they are in the background, while focused games count as active.
+- Keep idle timeout, manual pause, and game exclusions effective for both active and passive time.
+- Clarify that Count time toward selects the language receiving tracked time and does not change the app or game language.
+- Requires the matching Osmolog extension changes to import passive Steam time.
+
+## 1.2.2 — 2026-09-09
+
+- See update download progress and a clear restart-required banner when the download finishes.
+- Choose Restart to update to save activity, open the installer, and automatically reopen Companion.
+- See separate saving and installing messages while the update starts.
+
 ## 1.2.1 — 2026-09-09
 
 - Track local Steam games with focus and idle detection, pause controls, and saved per-game languages.

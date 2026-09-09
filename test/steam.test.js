@@ -90,21 +90,39 @@ test("disabled scanning cannot finish late and restore private library data", as
   assert.equal(sensor.sample().game, null);
 });
 
-test("gaming uses real active time, pauses for focus/idle/manual breaks and resumes without passive credit", () => {
+test("gaming switches between real active and passive time, while idle and manual pauses stop counting", () => {
   const f = fixture();
   f.run(10);
   f.tracker.updateSensor({ ...f.sample, focused: false }); f.run(10);
-  assert.equal(f.tracker.snapshot().reason, "unfocused");
-  f.tracker.updateSensor({ ...f.sample, idleSeconds: 61 }); f.run(10);
+  assert.equal(f.tracker.snapshot().reason, "tracking-passive");
+  assert.equal(f.tracker.snapshot().playing, true);
+  assert.equal(f.tracker.snapshot().paused, false);
+  assert.equal(f.tracker.snapshot().mode, "passive");
+  f.tracker.updateSensor({ ...f.sample, focused: false, idleSeconds: 61 }); f.run(10);
   assert.equal(f.tracker.snapshot().reason, "idle");
   f.tracker.updateSensor(f.sample); f.run(5);
   f.tracker.setPaused(true); f.run(10);
   assert.equal(f.tracker.snapshot().reason, "manual-pause");
   f.tracker.setPaused(false); f.run(5);
   f.tracker.end();
-  assert.equal(f.segments.reduce((sum, event) => sum + event.creditedSeconds, 0), 20);
-  assert(f.segments.every(event => event.mode === "active" && event.player === "steam" && event.appId === "1687950" && event.realSeconds === event.creditedSeconds));
-  assert.equal(f.tracker.snapshot().sessionPassiveSeconds, 0);
+  assert.equal(f.segments.reduce((sum, event) => sum + event.creditedSeconds, 0), 30);
+  assert(f.segments.every(event => event.player === "steam" && event.appId === "1687950" && event.realSeconds === event.creditedSeconds));
+  assert.equal(f.tracker.snapshot().sessionActiveSeconds, 20);
+  assert.equal(f.tracker.snapshot().sessionPassiveSeconds, 10);
+});
+
+test("background gaming stops for manual pause, exclusion, and game exit", () => {
+  const f = fixture();
+  const background = { ...f.sample, focused: false };
+  f.tracker.updateSensor(background); f.run(5);
+  f.tracker.setPaused(true); f.run(5);
+  f.tracker.setPaused(false); f.run(5);
+  f.tracker.updateConfig(normalize({ ...f.config, steam: { ...f.config.steam, games: { "1687950": { excluded: true } } } })); f.run(5);
+  f.tracker.updateConfig(f.config); f.run(5);
+  f.tracker.updateSensor({ ...background, game: null }); f.run(5);
+  assert.equal(f.tracker.snapshot().reason, "waiting");
+  assert.equal(f.segments.reduce((sum, event) => sum + event.creditedSeconds, 0), 15);
+  assert(f.segments.every(event => event.mode === "passive"));
 });
 
 test("missing language never borrows Japanese default; overrides split sessions and exclusions stop counting", () => {

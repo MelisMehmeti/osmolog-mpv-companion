@@ -32,7 +32,14 @@ Requirements:
 
 ## Set up mpv once
 
-Create `mpv.conf` if it does not exist and add this exact line:
+In Companion 1.2.4 or later, select **Set up MPV**. If asked, select `mpv.exe`
+or `mpv.net.exe`. Companion uses a previously detected configuration folder,
+an existing `portable_config` beside the selected application, or the standard
+per-user configuration folder. It preserves other settings and creates a backup
+before changing an existing file. Close and reopen MPV afterwards.
+
+Custom profiles that override the connection setting need manual setup. For
+older Companion versions, create `mpv.conf` if it does not exist and add this line:
 
 ```ini
 input-ipc-server=\\.\pipe\osmolog-mpv
@@ -66,8 +73,9 @@ the companion and open Osmolog once to trust the new installation.
 ### Steam
 
 Open **Connections → Steam** or expand **Steam game tracking** in Companion.
-Enable tracking, bring a game window forward, and check its language. Steam
-games count as **Gaming** while focused, with configurable idle detection,
+Enable tracking, bring a game window forward, and choose which language receives
+its tracked time. Steam games count as **Active Gaming** while focused and
+**Passive Gaming** while running in the background, with configurable idle detection,
 manual pause/resume, per-game language overrides, and exclusions. In-game pause
 menus and separate audio/text languages cannot be detected universally.
 
@@ -105,10 +113,13 @@ setting, open mpv once to finish setup. If you move the portable companion
 executable, run it once manually so the launcher can repair its saved path.
 
 The installed edition checks the public GitHub Releases feed after startup and
-periodically while it is running. A newer installer downloads in the
-background, then applies after the companion closes so active tracking and the
-crash-safe journal are finalized first. The portable edition never performs
-automatic update checks.
+periodically while it is running. The footer shows download progress, then
+**Update ready · restart required**. Choose **Restart to update** to save current
+activity, open the installer, and reopen Companion automatically. Separate
+saving and installing messages explain what is happening. You can keep tracking
+until you choose to restart. Closing **×** only hides Companion in the tray;
+quitting from the tray also applies a downloaded update. The portable edition
+never performs automatic update checks.
 
 ## Reliability and privacy
 

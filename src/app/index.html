@@ -32,8 +32,9 @@
         <section id="trackingPanel" class="tracking-panel" hidden>
           <div class="tracking-toolbar">
             <div id="trackingSourceEyebrow" class="section-eyebrow">LOCAL MEDIA · TRACKING</div>
-            <label for="languageSelect"><span>Language</span><select id="languageSelect"><option value="ja">Japanese</option><option value="en">English</option><option value="sv">Swedish</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ko">Korean</option><option value="zh">Chinese</option></select></label>
+            <label for="languageSelect"><span>Count time toward</span><select id="languageSelect" aria-describedby="trackingLanguageHelp"><option value="ja">Japanese</option><option value="en">English</option><option value="sv">Swedish</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ko">Korean</option><option value="zh">Chinese</option></select></label>
           </div>
+          <p id="trackingLanguageHelp" class="tracking-language-help">This language receives your tracked time. It does not change the app or game language.</p>
           <div class="now-playing">
             <div id="sourceSymbol" class="source-symbol" aria-hidden="true"><img id="activePlayerIcon" src="../../assets/mpv.svg" alt=""></div>
             <div class="media-copy"><h1 id="mediaTitle">No media loaded</h1><p><i id="modeDot"></i><span id="modeLabel">Ready to track</span></p></div>
@@ -46,21 +47,26 @@
           <div class="attention-split"><div><span id="activeLabel">Active 0m</span><span id="passiveLabel">Passive 0m</span></div><div class="split-track"><i id="activeTrack"></i><em id="passiveTrack"></em></div></div>
           <footer><span id="footerStatus">Closing keeps tracking in the tray.</span><span class="footer-actions"><button id="pairAgain" type="button" hidden>RECONNECT OSMOLOG</button><button id="openDashboard" type="button">OPEN DASHBOARD</button></span></footer>
         </section>
+        <section class="mpv-setup" aria-label="MPV setup">
+          <button id="setupMpvButton" type="button">Set up MPV</button>
+          <p>Configure the connection automatically. If asked, choose your MPV application, then restart MPV.</p>
+          <p id="mpvSetupFeedback" role="status"></p>
+        </section>
         <details id="steamSettings" class="steam-settings">
           <summary>Steam game tracking <span id="steamSummary">Off</span></summary>
           <fieldset id="steamControls">
             <label class="steam-toggle"><input id="steamEnabled" type="checkbox">Track Steam games</label>
             <p id="steamState" role="status">Steam tracking is off.</p>
-            <label for="steamIdleSeconds">Stop after no input<select id="steamIdleSeconds"><option value="0">Off · count while focused</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select></label>
+            <label for="steamIdleSeconds">Stop after no input<select id="steamIdleSeconds"><option value="0">Off · count while game is open</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select></label>
             <div id="steamGameControls" hidden>
               <p id="steamGameTitle"></p>
-              <label for="steamLanguage">Language for this game<select id="steamLanguage"><option value="">Use Steam setting</option></select></label>
+              <label for="steamLanguage">Count game time toward<select id="steamLanguage" aria-describedby="steamLanguageHelp"><option value="">Suggested by Steam</option></select></label>
               <label class="steam-toggle"><input id="steamExcluded" type="checkbox">Exclude this game</label>
               <button id="steamPause" type="button">Pause tracking</button>
             </div>
           </fieldset>
-          <p>Steam’s configured language may differ from in-game audio or text. Your language choice is saved per game.</p>
-          <p>Background and idle time do not count. In-game pause menus cannot be detected; use Pause tracking for breaks. For long cutscenes or controllers without XInput, increase or turn off the idle limit.</p>
+          <p id="steamLanguageHelp">Choose the language that receives this game’s tracked time in Osmolog. This does not change the game or app language. Your choice is saved per game.</p>
+          <p>Focused games count as active time; games running in the background count as passive. Idle time does not count. In-game pause menus cannot be detected; use Pause tracking for breaks. For long cutscenes or controllers without XInput, increase or turn off the idle limit.</p>
           <p id="steamFeedback" role="status"></p>
         </details>
         <section class="companion-lifecycle" aria-label="Companion lifecycle and sync">
@@ -74,7 +80,8 @@
       </div>
       <div class="app-version-footer" aria-label="Companion version and updates">
         <span id="appVersion">Osmolog Companion</span>
-        <p id="updateStatus" role="status" aria-live="polite"></p>
+        <div class="app-update-copy"><strong id="updateHeading" hidden></strong><p id="updateStatus" role="status" aria-live="polite"></p></div>
+        <button id="restartUpdateButton" type="button" hidden>Restart to update</button>
       </div>
     </section>
 

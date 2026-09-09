@@ -3,7 +3,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const childProcess = require("node:child_process");
-const { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Tray } = require("electron");
+const { setupMpvConnection } = require("../mpv/setup");
 const { autoUpdater } = require("electron-updater");
 const { CompanionService } = require("../service");
 const { companionExecutablePath, installMpvAutoLauncher, removeMpvAutoLauncher } = require("../mpv/auto-launch");
@@ -260,6 +261,25 @@ function createWindow() {
 }
 
 function registerIpc() {
+  ipcMain.handle("setup-mpv", async () => {
+    const configDirectory = currentMpvConfigDirectory();
+    let executable = "";
+    if (!configDirectory) {
+      const selection = await dialog.showOpenDialog(mainWindow, {
+        title: "Choose MPV to set it up", buttonLabel: "Set up MPV",
+        filters: [{ name: "MPV application (mpv.exe or mpv.net.exe)", extensions: ["exe", "com"] }], properties: ["openFile"]
+      });
+      if (selection.canceled) return { ok: false, message: "MPV setup cancelled. No settings were changed." };
+      executable = selection.filePaths[0];
+    }
+    const result = setupMpvConnection({ configDirectory, executable });
+    if (result.ok) {
+      detectedMpvConfigDirectory = result.directory;
+      service.configStore.update({ mpvConfigDirectory: result.directory });
+      if (service.config?.runOnlyWithMpv) enableRunOnlyWithMpv();
+    }
+    return result;
+  });
   ipcMain.handle("get-state", () => latestState);
   ipcMain.handle("window-action", (_event, action, details = {}) => {
     if (action === "compact") showCompact();
@@ -281,6 +301,12 @@ function registerIpc() {
   ipcMain.handle("open-dashboard", () => openDashboard());
   ipcMain.handle("set-run-only-with-mpv", (_event, enabled) => enabled ? enableRunOnlyWithMpv() : disableRunOnlyWithMpv());
   ipcMain.handle("sync-now", () => syncNow());
+  ipcMain.handle("restart-for-update", async () => {
+    if (quitting) return { ok: false, message: "Companion is already closing." };
+    const result = await updateController?.restartAndInstall();
+    if (!result?.ok) quitting = false;
+    return result || { ok: false, message: "No update is ready to install." };
+  });
 }
 
 app.on("second-instance", () => showExpanded());
@@ -317,7 +343,12 @@ app.whenReady().then(async () => {
     app,
     updater: autoUpdater,
     logger: service.logger,
+    beforeInstall: async () => {
+      quitting = true;
+      await service.shutdown("install update");
+    },
     onStatus: status => {
+      if (status.state === "error" && ["preparing", "installing"].includes(updateStatus.state)) quitting = false;
       updateStatus = status;
       sendState();
     }
