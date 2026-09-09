@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.2.7 — 2026-09-09
+
+- Let Sync now finish its queued batch while live tracking continues, allow slower confirmations, and safely retry unconfirmed activity.
+- Refresh pending counts immediately after confirmations and keep tracking controls usable during synchronization.
+
+- Clarify that tracking starts with playback in MPV or Manatan, or a running Steam game; opening Steam alone is not enough.
+
 ## 1.2.6 — 2026-09-09
 
 - Redesign Home and all Settings tabs with centered integration statuses, a daily total and sync panel, and consistent controls.

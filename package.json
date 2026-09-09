@@ -1,6 +1,6 @@
 {
   "name": "osmolog-mpv-companion",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "private": true,
   "description": "Osmolog Windows companion for MPV, Manatan and local Steam game tracking.",
   "author": "Osmolog",

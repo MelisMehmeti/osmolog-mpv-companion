@@ -9,7 +9,7 @@ const { autoUpdater } = require("electron-updater");
 const { CompanionService } = require("../service");
 const { companionExecutablePath, installMpvAutoLauncher, removeMpvAutoLauncher } = require("../mpv/auto-launch");
 const { createAutoUpdateController, isPortableBuild } = require("./auto-update");
-const { syncWithChrome } = require("./sync-controller");
+const { syncWithChrome, waitForJournalAcks } = require("./sync-controller");
 const { createDesktopSettings, shouldOpenForPlayer } = require("./desktop-settings");
 
 let mainWindow = null;
@@ -193,22 +193,13 @@ async function waitForExtensionConnection(timeoutMs = 8000) {
   return (service?.transport?.clients?.size || 0) > 0;
 }
 
-async function waitForJournalAcks(timeoutMs = 3000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if ((service?.journal?.list?.().length || 0) === 0) return true;
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  return (service?.journal?.list?.().length || 0) === 0;
-}
-
 async function syncNow() {
   return syncWithChrome({
     service,
     isChromeRunning,
     launchChrome: launchChromeDashboard,
     waitForConnection: waitForExtensionConnection,
-    waitForAcks: waitForJournalAcks
+    waitForAcks: eventIds => waitForJournalAcks(service, eventIds)
   });
 }
 

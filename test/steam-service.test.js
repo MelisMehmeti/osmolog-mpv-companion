@@ -8,6 +8,7 @@ const { EventEmitter, once } = require("node:events");
 const { WebSocket } = require("ws");
 const { ConfigStore } = require("../src/config");
 const { CompanionService } = require("../src/service");
+const { waitForJournalAcks } = require("../src/app/sync-controller");
 const { CompanionTransport } = require("../src/transport/websocket-server");
 
 test("real Companion transport confirms controls, journals Steam time, replays offline events and acknowledges delivery", async t => {
@@ -77,9 +78,24 @@ test("real Companion transport confirms controls, journals Steam time, replays o
   const second = await connect(); socket = second.client;
   await waitFor(() => second.received.some(message => message.type === "segment" && message.eventId === queued[0].eventId));
   assert(second.received.some(message => message.type === "segment" && message.eventId === queued[0].eventId));
-  socket.send(JSON.stringify({ type: "ack", eventId: queued[0].eventId }));
+  assert.deepEqual(service.syncPending([queued[0].eventId]).eventIds, [queued[0].eventId]);
+  assert.equal(service.syncPending(["not-in-the-journal"]).pending, 0);
+  let publishedPending = -1;
+  service.on("state", state => { publishedPending = state.pendingSegments; });
+  // Simulate a lost first ACK. The retry must use the real socket/journal path.
+  let retryDeliveries = 0;
+  socket.on("message", data => {
+    const message = JSON.parse(String(data));
+    if (message.type === "segment" && message.eventId === queued[0].eventId) {
+      retryDeliveries += 1;
+      socket.send(JSON.stringify({ type: "ack", eventId: message.eventId }));
+    }
+  });
+  assert.equal(await waitForJournalAcks(service, [queued[0].eventId], { retryMs: 50, stallMs: 5000 }), true);
+  assert.ok(retryDeliveries >= 1);
   await waitFor(() => service.journal.list().length === 0);
   assert.equal(service.journal.list().length, 0);
+  assert.equal(publishedPending, 0);
   assert.equal((await control({ appId: "10", language: "en" })).ok, true);
   assert.equal(service.config.defaultLanguage, "ja");
   assert.equal(service.publicState().steam.languageOverride, "en");

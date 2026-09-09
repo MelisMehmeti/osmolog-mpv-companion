@@ -273,6 +273,7 @@ class CompanionService extends EventEmitter {
       }
       if (message?.type === "ack" && this.journal.acknowledge(String(message.eventId || ""))) {
         this.transport.send(socket, { type: "acknowledged", eventId: message.eventId });
+        this.publish();
       }
       if (message?.type === "todayTotals") {
         this.overlay.setTodayTotal(message.languageCode, message.seconds);
@@ -459,8 +460,9 @@ class CompanionService extends EventEmitter {
     return this.publicState();
   }
 
-  syncPending() {
-    const pending = this.journal?.list?.() || [];
+  syncPending(eventIds = null) {
+    const requested = eventIds ? new Set(eventIds) : null;
+    const pending = (this.journal?.list?.() || []).filter(event => !requested || requested.has(event.eventId));
     let sent = 0;
     for (const event of pending) sent += this.transport?.broadcast?.({ type: "segment", ...event }) || 0;
     this.publish();
@@ -468,6 +470,7 @@ class CompanionService extends EventEmitter {
       ok: (this.transport?.clients?.size || 0) > 0,
       connected: (this.transport?.clients?.size || 0) > 0,
       pending: pending.length,
+      eventIds: pending.map(event => event.eventId),
       transmissions: sent
     };
   }

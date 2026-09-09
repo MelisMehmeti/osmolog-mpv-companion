@@ -60,7 +60,7 @@ function render(next){
   const minutesSinceSync=Math.max(0,Math.floor((Date.now()-lastSyncAt)/60000));
   text('lastSyncStatus',syncing?'Syncing…':state.pendingSegments?`${state.pendingSegments} waiting to sync`:lastSyncAt?`Last synced ${minutesSinceSync?`${minutesSinceSync} min ago`:'just now'}`:state.extensionConnected?'All activity synced':'Saved on this computer');
   if(byId('syncNow')){byId('syncNow').disabled=busy||syncing;text('syncNow',syncing?'Syncing…':'Sync now');}
-  text('idleTitle',state.ready?'No media detected':state.fatalError?'Could not start':'Getting ready');text('idleCopy',state.fatalError||(state.ready?'Open MPV, Steam, or Manatan to begin tracking.':'Connecting the local tracker…'));
+  text('idleTitle',state.ready?'No media detected':state.fatalError?'Could not start':'Getting ready');text('idleCopy',state.fatalError||(state.ready?'Start playback in MPV or Manatan, or launch a Steam game.':'Connecting the local tracker…'));
   for(const key of ['startWithWindows','startMinimized','keepInTray'])checked(key,state.desktop?.[key]);
   value('defaultLanguage',state.defaultLanguage||'ja');checked('openWithPlayer',state.desktop?.openWith?.[page]);
   const playerState=state.players?.[page]||{},s=connection(playerState);
@@ -106,11 +106,22 @@ async function run(operation,success){
   catch{notify('Could not complete this action. Please try again.');}
   finally{busy=false;for(const el of document.querySelectorAll('#pageContent button, #pageContent input, #pageContent select'))el.disabled=false;render();}
 }
+async function synchronize(){
+  if(syncing)return;
+  syncing=true;notify('');render();
+  try{
+    const result=await api.syncNow();
+    if(result?.state)render(result.state);
+    if(result?.ok===true)lastSyncAt=Date.now();
+    else notify(result?.message||'Could not confirm synchronization. Your activity remains saved on this computer.');
+  }catch{notify('Could not complete synchronization. Your activity remains saved on this computer.');}
+  finally{syncing=false;render();}
+}
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;const {page:nextPage,action}=b.dataset;
   if(nextPage){if(!busy){page=nextPage;notify('');render();if(e.detail===0)document.querySelector(page==='home'?'#settingsButton':'.settings-tabs .selected')?.focus();}return;}
   if(action==='dashboard')void run(async()=>({ok:await api.openDashboard(),message:'Open Osmolog in Chrome to view your dashboard.'}));
-  if(action==='sync')void run(async()=>{syncing=true;render();try{const result=await api.syncNow();if(result?.ok===true){lastSyncAt=Date.now();return {...result,message:''};}return result;}finally{syncing=false;}});
+  if(action==='sync')void synchronize();
   if(action==='pause')void run(()=>api.setTrackingPaused(state.player,!state.players?.[state.player]?.manualPaused,state.sessionId));
   if(action==='steamPause')void run(()=>api.setTrackingPaused('steam',!state.steam.manualPaused,state.steam.sessionId));
   if(action==='setup')void run(()=>api.setupMpv());

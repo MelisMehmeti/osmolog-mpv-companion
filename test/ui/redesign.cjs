@@ -32,6 +32,7 @@ await page.evaluate(()=>{window.osmolog.syncNow=()=>new Promise(resolve=>{window
 await page.locator('#syncNow').click();
 assert.equal(await page.locator('#syncNow').isDisabled(),true);
 assert.equal(await page.locator('#syncNow').innerText(),'Syncing…');
+assert.equal(await page.locator('#pauseButton').isDisabled(),false,'sync must not block tracking controls');
 await page.evaluate(()=>publish());
 assert.equal(await page.locator('#syncNow').isDisabled(),true);
 await page.evaluate(()=>finishSync({ok:true}));

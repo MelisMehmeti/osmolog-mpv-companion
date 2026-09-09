@@ -13,6 +13,6 @@
   const tab = (key, label, selected) => `<button type="button" data-page="${key}" ${selected ? 'class="selected" aria-current="page"' : ''}>${key === 'general' ? '<span class="settings-gear" aria-hidden="true">⚙</span>' : icon(key)}<span>${label}</span></button>`;
   const integration = (player, label) => `<button type="button" class="connection is-idle" data-page="${player}">${icon(player)}<span><b>${label}</b><small id="${player}Connection" class="waiting">${dot()}<span>Idle</span></small></span></button>`;
   const languageChip = id => `<span id="${id}" class="language-chip"></span>`;
-  const emptyState = () => `<section class="session-panel idle-state"><svg class="empty-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21"/><path d="M20 16 32 24 20 32Z"/></svg><h1 id="idleTitle">No media detected</h1><p id="idleCopy">Open MPV, Steam, or Manatan to begin tracking.</p></section>`;
+  const emptyState = () => `<section class="session-panel idle-state"><svg class="empty-play" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21"/><path d="M20 16 32 24 20 32Z"/></svg><h1 id="idleTitle">No media detected</h1><p id="idleCopy">Start playback in MPV or Manatan, or launch a Steam game.</p></section>`;
   root.CompanionUi = { icon, dot, secondaryButton, toggle, select, row, section, tab, integration, languageChip, emptyState };
 })(globalThis);
