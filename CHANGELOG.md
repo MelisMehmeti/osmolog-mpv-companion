@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1 — 2026-09-09
+
+- Track local Steam games with focus and idle detection, pause controls, and saved per-game languages.
+- See the installed Companion version in a fixed footer beside the update status.
+- Preserve queued activity and interrupted sessions more reliably, including separate Steam, MPV, and Manatan recovery.
+- Keep Companion running for Steam tracking when MPV closes.
+
 ## 1.1.0 — 2026-08-30
 
 - Added a per-user Windows installer that requires no administrator access.

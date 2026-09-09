@@ -29,21 +29,38 @@ class WindowsFocusDetector {
   }
 
   isMpvFocused() {
+    return this.isProcessFocused(["mpv.exe", "mpv.com"]);
+  }
+
+  isProcessFocused(executableNames) {
     if (!this.available) return false;
+    const expected = new Set((Array.isArray(executableNames) ? executableNames : [executableNames])
+      .map(value => String(value || "").trim().toLowerCase()).filter(Boolean));
+    if (!expected.size) return false;
+    const foreground = this.foregroundProcess();
+    return Boolean(foreground && expected.has(path.win32.basename(foreground.path).toLowerCase()));
+  }
+
+  foregroundProcess() {
+    if (!this.available) return null;
     const window = this.GetForegroundWindow();
-    if (!window) return false;
+    if (!window) return null;
     const pid = [0];
     this.GetWindowThreadProcessId(window, pid);
-    if (!pid[0]) return false;
+    const executable = this.processImage(pid[0]);
+    return executable ? { pid: pid[0], path: executable } : null;
+  }
+
+  processImage(pid) {
+    if (!this.available || !Number.isInteger(pid) || pid <= 0) return "";
     const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
-    const processHandle = this.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid[0]);
-    if (!processHandle) return false;
+    const processHandle = this.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+    if (!processHandle) return "";
     try {
       const size = [1024];
       const buffer = Buffer.alloc(2048);
-      if (!this.QueryFullProcessImageNameW(processHandle, 0, buffer, size)) return false;
-      const executable = buffer.toString("utf16le", 0, size[0] * 2).replace(/\0+$/, "");
-      return ["mpv.exe", "mpv.com"].includes(path.win32.basename(executable).toLowerCase());
+      if (!this.QueryFullProcessImageNameW(processHandle, 0, buffer, size)) return "";
+      return buffer.toString("utf16le", 0, size[0] * 2).replace(/\0+$/, "");
     } finally {
       this.CloseHandle(processHandle);
     }

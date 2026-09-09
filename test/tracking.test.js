@@ -52,6 +52,18 @@ function run(engine, clock, seconds) {
   for (let index = 0; index < seconds; index += 1) engine.tick(clock.advance(1));
 }
 
+test("a short fragment is delivered before its recoverable draft is cleared", () => {
+  const { engine, clock, segments } = createEngine();
+  const order = [];
+  engine.on("segment", () => order.push("journal"));
+  engine.on("checkpoint", draft => { if (!draft) order.push("clear-draft"); });
+  run(engine, clock, 2);
+  engine.beginSeek(clock.times());
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0].realSeconds, 2);
+  assert.deepEqual(order, ["journal", "clear-draft"]);
+});
+
 test("active playback closes into passive on alt-tab", () => {
   const { engine, clock, segments } = createEngine();
   run(engine, clock, 60);

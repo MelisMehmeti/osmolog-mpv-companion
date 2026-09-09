@@ -1,9 +1,9 @@
-# Osmolog MPV Companion
+# Osmolog Companion
 
 Osmolog Companion counts video and audio played in [mpv](https://mpv.io/) and
-sends the resulting sessions to the Osmolog Chrome extension. It runs as a
-small Windows utility; the existing Osmolog dashboard remains the place for
-history, goals, Sources, and analytics.
+the native Manatan Windows app, and tracks local Steam games, then sends sessions to the
+Osmolog Chrome extension. It runs as a small Windows utility; the existing
+Osmolog dashboard remains the place for history, goals, Sources, and analytics.
 
 The companion shows only what is useful while watching: connection state,
 current title, language, file time, total Osmolog time today, playback speed,
@@ -27,7 +27,7 @@ and compare its SHA-256 checksum with the release notes before running it.
 Requirements:
 
 - Windows 10 or 11, 64-bit
-- mpv
+- mpv, the Manatan Windows app, and/or Steam games
 - the Osmolog Chrome extension
 
 ## Set up mpv once
@@ -47,7 +47,7 @@ Restart mpv after saving the file, then start Osmolog Companion.
 
 ## Connect Osmolog once
 
-1. Start the companion and mpv.
+1. Start the companion and either mpv or Manatan.
 2. Open Osmolog in Chrome.
 3. Open the dashboard, then go to **Connections → Apps & players**.
 4. In the **MPV Companion** card, select **Reconnect now**.
@@ -63,8 +63,24 @@ the companion and open Osmolog once to trust the new installation.
 
 ## Everyday behavior
 
+### Steam
+
+Open **Connections → Steam** or expand **Steam game tracking** in Companion.
+Enable tracking, bring a game window forward, and check its language. Steam
+games count as **Gaming** while focused, with configurable idle detection,
+manual pause/resume, per-game language overrides, and exclusions. In-game pause
+menus and separate audio/text languages cannot be detected universally.
+
+See [Steam setup, behavior, and limitations](docs/STEAM.md). This requires a
+Companion build containing Steam support; existing installed builds need updating.
+
+### Media players
+
 - Focused, audible, unpaused mpv playback counts as **Active**.
 - Unfocused, audible, unpaused playback counts as **Passive**.
+- Audible native Manatan playback follows the same Active/Passive rule. The
+  companion uses Manatan's Windows media state when available and its local
+  process-audio session as a fallback; no Manatan modification is required.
 - Pause, mute, volume zero, buffering, seeking, EOF, and no loaded file do not
   count.
 - Audio-only playback counts normally.
@@ -120,6 +136,13 @@ for the complete local data and transport design.
 Confirm that `mpv.conf` contains the named-pipe line exactly, save it, and
 fully restart mpv. Only one mpv instance can own the fixed pipe.
 
+### Manatan is open but not counting
+
+Start a video and leave Osmolog Companion running. The Manatan card should say
+that the app is detected, then switch to active or passive tracking when the
+Windows audio session becomes active. Muted or volume-zero playback does not
+count.
+
 ### Companion says “Reconnecting to Osmolog”
 
 Wait up to 30 seconds. If it remains disconnected, reload Osmolog from
@@ -133,7 +156,7 @@ delete `%APPDATA%\Osmolog\pending.jsonl`; it drains after reconnection.
 
 ## Development
 
-Requires Node.js 20 or newer.
+Use Node.js 24, matching the automated test environment.
 
 ```powershell
 npm install
@@ -153,11 +176,17 @@ GitHub Release.
 
 ## Current scope
 
-Version 1 supports Windows and mpv. VLC, macOS, Linux, native messaging, and
-code signing are not included yet.
+The companion supports Windows with mpv, the native Manatan app, and local Steam games. VLC,
+macOS, Linux, native messaging, and code signing are not included yet.
 
 ## License
 
 The companion source code is available under the [MIT License](LICENSE).
 The Osmolog name, logo, and product identity are not licensed for third-party
 builds; see [TRADEMARKS.md](TRADEMARKS.md).
+
+### Journal preservation
+
+Unacknowledged segments have no age expiry and are not removed when the journal passes its size warning threshold. Drafts are cleared only after a durable journal append; MPV and Manatan keep independent drafts. Damaged bytes are copied to `.damaged-*` recovery files before later writes. These files remain local until explicitly removed. Closing or deleting the application is not a substitute for confirming queued time reached the extension.
+
+Companion 1.2.0 includes Steam tracking and the journal reliability fixes. Users of 1.1.0 need to install the updated Companion; reconnecting 1.1.0 cannot add Steam support.

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="mpv">
+  <!-- Optimized from mpv's official etc/mpv-gradient.svg application icon. -->
+  <defs>
+    <linearGradient id="outer" gradientUnits="userSpaceOnUse" x1="10.3145" y1="1005.4928" x2="53.5091" y2="1035.4684">
+      <stop offset="0" stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#bababa"/>
+    </linearGradient>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="17.855" y1="999.535" x2="45.2239" y2="1040.8677">
+      <stop offset="0" stop-color="#6b3c74"/>
+      <stop offset="1" stop-color="#461b4d"/>
+    </linearGradient>
+    <linearGradient id="core" gradientUnits="userSpaceOnUse" x1="22.1372" y1="1005.8652" x2="46.341" y2="1031.8378">
+      <stop offset="0" stop-color="#320f38"/>
+      <stop offset="1" stop-color="#5a2963"/>
+    </linearGradient>
+    <linearGradient id="disc" gradientUnits="userSpaceOnUse" x1="23.1612" y1="1012.2885" x2="39.7315" y2="1029.4174">
+      <stop offset="0" stop-color="#e6e2e8"/>
+      <stop offset="1" stop-color="#aaa3ad"/>
+    </linearGradient>
+    <linearGradient id="play" gradientUnits="userSpaceOnUse" x1="28.8222" y1="1017.4229" x2="32.2274" y2="1022.4399">
+      <stop offset="0" stop-color="#65376e"/>
+      <stop offset="1" stop-color="#4c2354"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 -988.3622)">
+    <circle cx="32" cy="1020.3622" r="27.9492" fill="url(#outer)"/>
+    <circle cx="32.7271" cy="1019.5079" r="25.9506" fill="url(#ring)"/>
+    <circle cx="34.2244" cy="1017.7957" r="20" fill="url(#core)"/>
+    <circle cx="31.6326" cy="1020.4807" r="12.8489" fill="url(#disc)"/>
+    <path d="m28.3743 1014.709v11.4502l9.2161-5.8647z" fill="url(#play)"/>
+  </g>
+</svg>

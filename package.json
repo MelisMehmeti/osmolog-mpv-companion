@@ -1,14 +1,14 @@
 {
   "name": "osmolog-mpv-companion",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "private": true,
-  "description": "Windows MPV companion with an Osmolog mini window and tray tracker.",
+  "description": "Osmolog Windows companion for MPV, Manatan and local Steam game tracking.",
   "author": "Osmolog",
   "main": "src/app/main.js",
   "scripts": {
     "start": "electron src/app/main.js",
     "start:headless": "node src/index.js",
-    "test": "node --test test/app-contract.test.js test/auto-launch.test.js test/auto-update.test.js test/journal.test.js test/language-preference.test.js test/mpv-ipc.test.js test/service-lifecycle.test.js test/sync-controller.test.js test/tracking.test.js test/transport.test.js",
+    "test": "node --test test/app-contract.test.js test/auto-launch.test.js test/auto-update.test.js test/journal.test.js test/language-preference.test.js test/manatan.test.js test/mpv-ipc.test.js test/service-lifecycle.test.js test/steam.test.js test/steam-service.test.js test/sync-controller.test.js test/tracking.test.js test/transport.test.js",
     "pack:win": "electron-builder --win --x64 --publish never",
     "dist": "npm run test && npm run pack:win"
   },

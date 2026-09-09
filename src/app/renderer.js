@@ -1,6 +1,6 @@
 "use strict";
 
-const LANGUAGE_NAMES = { ja: "Japanese", en: "English", sv: "Swedish", es: "Spanish", fr: "French", de: "German", ko: "Korean", zh: "Chinese" };
+const LANGUAGE_NAMES = { ja: "Japanese", en: "English", sv: "Swedish", es: "Spanish", fr: "French", de: "German", ko: "Korean", zh: "Chinese", ar: "Arabic", bg: "Bulgarian", cs: "Czech", da: "Danish", nl: "Dutch", fi: "Finnish", el: "Greek", hu: "Hungarian", id: "Indonesian", it: "Italian", no: "Norwegian", pl: "Polish", pt: "Portuguese", ro: "Romanian", ru: "Russian", th: "Thai", tr: "Turkish", uk: "Ukrainian", vi: "Vietnamese" };
 const byId = id => document.getElementById(id);
 let state = { ready: false };
 
@@ -8,6 +8,7 @@ function createPreviewBridge() {
   const preview = new URLSearchParams(location.search).get("preview");
   let previewState = {
     ready: true,
+    appVersion: "preview",
     mpvConnected: preview === "mpv" || preview === "tracking",
     paired: preview === "tracking",
     extensionConnected: preview === "tracking",
@@ -42,6 +43,7 @@ function createPreviewBridge() {
     },
     startPairing: async () => { previewState = { ...previewState, pairingSeconds: 60 }; publish(); return previewState; },
     setLanguage: async languageCode => { previewState = { ...previewState, languageCode }; publish(); return { ok: true, scope: previewState.fileLoaded ? "file" : "default" }; },
+    configureSteam: async patch => { previewState = { ...previewState, steam: { ...previewState.steam, ...patch } }; publish(); return { ok: true }; },
     setRunOnlyWithMpv: async enabled => {
       previewState = {
         ...previewState,
@@ -84,10 +86,10 @@ function setupContent(current) {
     button: "Open Osmolog",
     disabled: false
   };
-  if (!current.mpvConnected) return {
-    eyebrow: "MPV CONNECTION",
-    title: "Connected — waiting for MPV",
-    copy: "Start MPV with the Osmolog named-pipe setting.",
+  if (!current.mpvConnected && !current.manatanConnected && !current.steam?.connected) return {
+    eyebrow: "PLAYER CONNECTION",
+    title: "Connected — waiting for a player",
+    copy: "Start MPV, open a video in Manatan, or enable Steam tracking below and open a game.",
     button: "",
     disabled: true
   };
@@ -96,6 +98,7 @@ function setupContent(current) {
 
 function render(next) {
   state = next || state;
+  byId("appVersion").textContent = state.appVersion ? `Companion v${state.appVersion}` : "Companion · version unavailable";
   const connected = state.extensionConnected === true;
   const status = byId("connectionStatus");
   status.className = `connection-status${connected ? " is-connected" : state.pairingSeconds ? " is-pairing" : ""}`;
@@ -114,11 +117,15 @@ function render(next) {
     if (connected) byId("setupFeedback").textContent = "";
   }
 
-  const languageCode = state.languageCode || "ja";
-  const languageName = LANGUAGE_NAMES[languageCode] || languageCode.toUpperCase();
+  const languageCode = state.languageCode || (state.player === "steam" ? "" : "ja");
+  const languageName = LANGUAGE_NAMES[languageCode] || languageCode.toUpperCase() || "Choose language";
   if (document.activeElement !== byId("languageSelect")) byId("languageSelect").value = languageCode;
+  const sourceLabel = state.player === "steam" ? "STEAM" : state.player === "manatan" ? "MANATAN" : "MPV";
+  byId("activePlayerIcon").setAttribute("src", state.player === "steam" ? "../../assets/steam.svg" : state.player === "manatan" ? "../../assets/manatan.png" : "../../assets/mpv.svg");
+  byId("trackingSourceEyebrow").textContent = `${sourceLabel} · TRACKING`;
   byId("mediaTitle").textContent = state.title || (state.fileLoaded ? "Local media" : "No media loaded");
-  const playbackStatus = state.playing ? "Tracking now" : state.fileLoaded && state.paused ? "Playback paused" : "Ready to track";
+  const playbackStatus = state.player === "steam" ? steamReason(state.steam) : state.playing ? "Tracking now" : state.fileLoaded && state.paused ? "Playback paused" : "Ready to track";
+  byId("sessionTimeLabel").textContent = state.player === "steam" ? "THIS GAME SESSION" : "THIS FILE";
   byId("modeLabel").textContent = playbackStatus;
   byId("modeDot").className = state.mode === "active" ? "is-active" : state.mode === "passive" ? "is-passive" : "";
   byId("fileTime").textContent = duration(state.sessionSeconds);
@@ -145,6 +152,7 @@ function render(next) {
   byId("autoLaunchDescription").textContent = state.distribution === "portable"
     ? "Keep this EXE in a permanent folder before enabling. It closes safely when MPV closes."
     : "It closes safely when MPV closes.";
+  if (state.steam?.enabled) byId("autoLaunchDescription").textContent = "Companion stays open while Steam tracking is enabled.";
   const update = state.updateStatus || {};
   const updateVersion = update.version ? ` ${update.version}` : "";
   const updateMessages = {
@@ -163,7 +171,47 @@ function render(next) {
   byId("compactTime").textContent = duration(state.sessionSeconds);
   byId("compactLanguage").textContent = languageName.toUpperCase();
   byId("compactDot").className = state.mode === "active" ? "is-active" : state.mode === "passive" ? "is-passive" : "";
+  const steam = state.steam || {};
+  byId("steamEnabled").checked = steam.enabled === true;
+  byId("steamSummary").textContent = steam.enabled ? "Enabled" : "Off";
+  byId("steamState").textContent = steam.error || steamReason(steam);
+  if (document.activeElement !== byId("steamIdleSeconds")) {
+    const idle = String(steam.idleThresholdSeconds ?? 300);
+    if (![...byId("steamIdleSeconds").options].some(option => option.value === idle)) byId("steamIdleSeconds").add(new Option(`${Number(idle) / 60} minutes`, idle));
+    byId("steamIdleSeconds").value = idle;
+  }
+  byId("steamGameControls").hidden = !steam.appId;
+  byId("steamGameTitle").textContent = steam.title || "Steam game";
+  byId("steamLanguage").options[0].textContent = `Steam setting · ${LANGUAGE_NAMES[steam.configuredLanguage] || steam.configuredLanguage || "unknown"}`;
+  if (document.activeElement !== byId("steamLanguage")) byId("steamLanguage").value = steam.languageOverride || "";
+  byId("steamExcluded").checked = steam.excluded === true;
+  byId("steamPause").textContent = steam.manualPaused ? "Resume tracking" : "Pause tracking";
 }
+
+function steamReason(steam = {}) {
+  return ({ disabled: "Steam tracking is off", unavailable: "Windows activity detection is unavailable", "steam-not-found": "Looking for Steam",
+    waiting: "Open a Steam game and bring its window forward", excluded: "This game is excluded", "manual-pause": "Tracking paused by you",
+    "language-required": "Choose this game’s language", unfocused: "Game in background · timer stopped", idle: "Idle · timer stopped", tracking: "Counting Gaming time" })[steam.reason] || "Steam tracking is off";
+}
+
+for (const [code, name] of Object.entries(LANGUAGE_NAMES)) {
+  byId("steamLanguage").add(new Option(name, code));
+  if (![...byId("languageSelect").options].some(option => option.value === code)) byId("languageSelect").add(new Option(name, code));
+}
+byId("languageSelect").add(new Option("Choose language", ""));
+async function updateSteam(patch) {
+  byId("steamControls").disabled = true;
+  try {
+    const result = await companionApi.configureSteam(patch);
+    byId("steamFeedback").textContent = result?.ok ? "Steam settings saved." : result?.message || "Could not update Steam settings.";
+  } catch { byId("steamFeedback").textContent = "Could not save Steam settings. Try again."; }
+  finally { byId("steamControls").disabled = false; }
+}
+byId("steamEnabled").addEventListener("change", event => void updateSteam({ enabled: event.target.checked }));
+byId("steamIdleSeconds").addEventListener("change", event => void updateSteam({ idleSeconds: Number(event.target.value) }));
+byId("steamLanguage").addEventListener("change", event => void updateSteam({ appId: state.steam.appId, language: event.target.value }));
+byId("steamExcluded").addEventListener("change", event => void updateSteam({ appId: state.steam.appId, excluded: event.target.checked }));
+byId("steamPause").addEventListener("click", () => void updateSteam({ appId: state.steam.appId, paused: !state.steam.manualPaused }));
 
 byId("minimizeButton").addEventListener("click", () => companionApi.windowAction("compact"));
 byId("closeButton").addEventListener("click", () => companionApi.windowAction("hide"));
@@ -199,8 +247,9 @@ byId("pairAgain").addEventListener("click", async () => {
   byId("setupFeedback").textContent = "Pairing is ready. Open Osmolog in Chrome once to finish reconnecting.";
 });
 byId("languageSelect").addEventListener("change", async event => {
+  if (!event.target.value) return;
   const result = await companionApi.setLanguage(event.target.value);
-  byId("footerStatus").textContent = result.scope === "file-and-default"
+  byId("footerStatus").textContent = result.scope === "game" ? "Language saved for this Steam game." : result.scope === "file-and-default"
     ? "Language changed and saved for future MPV sessions."
     : "Default language saved for future MPV sessions.";
 });

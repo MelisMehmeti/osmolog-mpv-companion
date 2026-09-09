@@ -5,6 +5,17 @@ const os = require("node:os");
 const path = require("node:path");
 const EventEmitter = require("node:events");
 const { languageCode } = require("./util");
+const { appId } = require("./steam/library");
+
+function normalizeSteam(raw = {}) {
+  const idle = Number(raw.idleSeconds);
+  return {
+    enabled: raw.enabled === true,
+    idleSeconds: Number.isFinite(idle) ? (idle === 0 ? 0 : Math.max(30, Math.min(3600, Math.round(idle)))) : 300,
+    games: Object.fromEntries(Object.entries(raw.games || {}).filter(([id]) => appId(id)).slice(0, 10000)
+      .map(([id, game]) => [id, { language: languageCode(game?.language) || "", excluded: game?.excluded === true }]))
+  };
+}
 
 const DEFAULTS = Object.freeze({
   port: 47823,
@@ -15,6 +26,7 @@ const DEFAULTS = Object.freeze({
     { match: "D:\\Media\\English", language: "en" }
   ],
   recordTitles: true,
+  steam: { enabled: false, idleSeconds: 300, games: {} },
   runOnlyWithMpv: false,
   mpvConfigDirectory: "",
   speedCreditMin: 1,
@@ -38,6 +50,7 @@ function normalize(raw = {}) {
       .filter(rule => rule.match && rule.language)
       .slice(0, 100),
     recordTitles: raw.recordTitles !== false,
+    steam: normalizeSteam(raw.steam),
     runOnlyWithMpv: raw.runOnlyWithMpv === true,
     mpvConfigDirectory: String(raw.mpvConfigDirectory || "").replace(/[\r\n]/g, "").trim().slice(0, 2048),
     speedCreditMin: minimum,
@@ -112,4 +125,4 @@ class ConfigStore extends EventEmitter {
   }
 }
 
-module.exports = { ConfigStore, DEFAULTS, configDirectory, normalize };
+module.exports = { ConfigStore, DEFAULTS, configDirectory, normalize, normalizeSteam };

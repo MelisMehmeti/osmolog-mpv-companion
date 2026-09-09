@@ -15,6 +15,8 @@ class TrackingEngine extends EventEmitter {
     this.monotonicNow = options.monotonicNow || monotonicNow;
     this.wallNow = options.wallNow || Date.now;
     this.config = options.config;
+    this.player = ["mpv", "manatan", "steam"].includes(options.player) ? options.player : "mpv";
+    this.resolveLanguage = options.resolveLanguage || resolveLanguage;
     this.properties = {};
     this.fileLoaded = false;
     this.seeking = false;
@@ -29,10 +31,11 @@ class TrackingEngine extends EventEmitter {
     this.sessionCreditedSeconds = 0;
     this.sessionModeSeconds = { active: 0, passive: 0 };
     this.languageOverride = null;
-    this.shortSegments = [];
   }
 
   currentMode() {
+    if (this.player === "steam") return this.fileLoaded && this.properties.pause === false &&
+      this.properties.focused === true && this.language.languageCode ? "active" : null;
     if (!this.fileLoaded || this.seeking || this.properties.pause !== false ||
       this.properties["core-idle"] !== false || this.properties["paused-for-cache"] === true ||
       this.properties.mute === true || Number(this.properties.volume) <= 0 ||
@@ -59,18 +62,23 @@ class TrackingEngine extends EventEmitter {
       playing: Boolean(this.currentMode()),
       languageCode: this.language.languageCode,
       mode: this.currentMode(),
-      title: this.config.recordTitles ? cleanTitle(this.filename, this.mediaTitle) : undefined,
+      title: this.config.recordTitles ? this.title() : undefined,
       sessionSeconds: this.sessionCreditedSeconds,
       sessionActiveSeconds: this.sessionModeSeconds.active,
       sessionPassiveSeconds: this.sessionModeSeconds.passive
     };
   }
 
+  title() {
+    return this.player === "steam" ? this.mediaTitle.replace(/[\x00-\x1f]/g, " ").slice(0, 160) : cleanTitle(this.filename, this.mediaTitle);
+  }
+
   updateConfig(config) {
     const before = `${this.language.languageCode}|${this.language.languageSource}`;
     this.advance();
     this.config = config;
-    this.language = this.languageOverride || resolveLanguage(this.filePath, config);
+    if (this.player === "steam" && !config.recordTitles && this.segment) delete this.segment.title;
+    this.language = this.languageOverride || this.resolveLanguage(this.filePath, config);
     const after = `${this.language.languageCode}|${this.language.languageSource}`;
     if (this.fileLoaded && before !== after) this.transition(true);
   }
@@ -107,11 +115,10 @@ class TrackingEngine extends EventEmitter {
     this.filename = String(metadata.filename || "");
     this.mediaTitle = String(metadata.mediaTitle || "");
     Object.assign(this.properties, metadata.properties || {});
-    this.language = resolveLanguage(this.filePath, this.config);
+    this.language = this.resolveLanguage(this.filePath, this.config);
     this.sessionCreditedSeconds = 0;
     this.sessionModeSeconds = { active: 0, passive: 0 };
     this.languageOverride = null;
-    this.shortSegments = [];
     this.lastMono = times.mono ?? this.monotonicNow();
     this.lastWall = times.wall ?? this.wallNow();
     this.transition(false, times);
@@ -137,7 +144,6 @@ class TrackingEngine extends EventEmitter {
     if (!this.fileLoaded) return;
     this.advance(times);
     this.closeSegment(true, times);
-    for (const segment of this.shortSegments.splice(0)) this.emit("segment", segment);
     this.fileLoaded = false;
     this.seeking = false;
     this.sessionId = "";
@@ -172,7 +178,8 @@ class TrackingEngine extends EventEmitter {
       eventId: uuid(),
       sessionId: this.sessionId,
       schemaVersion: 1,
-      player: "mpv",
+      player: this.player,
+      ...(this.player === "steam" ? { appId: this.filePath.replace("steam://app/", ""), activity: "gaming" } : {}),
       mode,
       languageCode: this.language.languageCode,
       languageSource: this.language.languageSource,
@@ -180,24 +187,36 @@ class TrackingEngine extends EventEmitter {
       subTrackLang: this.subTrackLanguage(),
       subsVisible: this.properties["sub-visibility"] === true,
       hasVideo: this.hasVideo(),
-      ...(this.config.recordTitles ? { title: cleanTitle(this.filename, this.mediaTitle) } : {}),
+      ...(this.config.recordTitles ? { title: this.title() } : {}),
       realSeconds: 0,
       contentSeconds: 0,
       creditedSeconds: 0,
       maxSpeedSeen: Math.max(0, Number(this.properties.speed) || 1),
       segmentStartedAt: wall,
       segmentEndedAt: wall,
-      localDate: localDateKey(wall)
+      localDate: localDateKey(wall),
+      timezoneOffsetMinutes: new Date(wall).getTimezoneOffset(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     };
   }
 
   advance(times = {}) {
     const mono = times.mono ?? this.monotonicNow();
     const wall = times.wall ?? this.wallNow();
-    const elapsed = Math.min(5, monotonicSeconds(mono, this.lastMono));
+    const gap = monotonicSeconds(mono, this.lastMono);
+    // A suspended game/PC or stalled sampler is not evidence of play. Close at
+    // the last observed timestamp; never spread pre-sleep time across the gap.
+    if (this.player === "steam" && gap > 5) {
+      this.closeSegment(false, times);
+      this.lastMono = mono;
+      this.lastWall = wall;
+      this.openSegment(this.currentMode(), times);
+      return;
+    }
+    const elapsed = Math.min(5, gap);
     if (this.segment && elapsed > 0) {
       const speed = Math.max(0, Number(this.properties.speed) || 1);
-      const creditRate = clamp(speed, this.config.speedCreditMin, this.config.speedCreditMax);
+      const creditRate = this.player === "steam" ? 1 : clamp(speed, this.config.speedCreditMin, this.config.speedCreditMax);
       this.segment.realSeconds += elapsed;
       this.segment.contentSeconds += elapsed * speed;
       this.segment.creditedSeconds += elapsed * creditRate;
@@ -232,10 +251,10 @@ class TrackingEngine extends EventEmitter {
     if (!this.segment) return;
     const completed = this.finalizedSegment(this.segment);
     this.segment = null;
+    // The synchronous segment listener persists the journal before its draft
+    // is cleared. Every positive fragment is durable, even after a short seek.
+    if (completed.realSeconds > 0) this.emit("segment", completed);
     this.emit("checkpoint", null);
-    if (completed.realSeconds <= 0) return;
-    if (completed.realSeconds < 5 && !final) this.shortSegments.push(completed);
-    else this.emit("segment", completed);
   }
 }
 

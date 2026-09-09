@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-steam-*/
+dist-audit-*/
 *.log
 .env
 .env.*

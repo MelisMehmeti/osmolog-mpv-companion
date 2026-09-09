@@ -1,10 +1,10 @@
 # Architecture
 
 ```text
-mpv named pipe
-      │ playback properties and events
-      ▼
-Companion service ──► tracking engine ──► crash-safe journal
+mpv named pipe ───────┐
+                     ├─► Companion service ──► per-player tracking engines ──► crash-safe journal
+Manatan Windows media┘
+and process-audio state
       │                                      │
       │ local state                          │ acknowledged segments
       ▼                                      ▼
@@ -22,6 +22,27 @@ differences. Seeking and buffering close or suspend countable intervals.
 
 MPV's `focused` property is preferred for Active/Passive classification. When
 unavailable, the Windows foreground-window detector uses the mpv process ID.
+
+## Manatan integration
+
+Manatan embeds libmpv inside `Manatan.exe`, so it has no external mpv named
+pipe. A long-lived, hidden Windows Runtime reader observes the app's system
+media session. If Manatan does not publish that richer session, Core Audio
+session enumeration supplies play/pause, mute, volume, and process identity.
+The foreground-window detector classifies active versus passive time. Both
+paths are read-only and require neither injection nor a Manatan modification.
+
+MPV, Manatan, and Steam keep independent current drafts and session IDs. Their
+completed segments share the same journal and acknowledgement protocol.
+
+## Steam integration
+
+An opt-in local library scanner matches Steam installation directories to the
+foreground executable. Windows input timing and XInput state drive idle detection;
+game language comes from the local Steam manifest or a per-game user override.
+Steam uses active-only Gaming segments at real time, with manual pause and game
+exclusions. It skips unobserved gaps over five seconds. It shares the existing
+service, journal, and paired transport; see [Steam design and limits](STEAM.md).
 
 ## Delivery
 

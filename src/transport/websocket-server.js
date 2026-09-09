@@ -23,7 +23,7 @@ class CompanionTransport extends EventEmitter {
     this.port = 0;
     this.clients = new Set();
     this.pairingUntil = 0;
-    this.hello = options.hello || { type: "hello", version: "1.0.0", player: "mpv", schemaVersion: 1, capabilities: ["segments", "state", "todayTotals", "osd"] };
+    this.hello = options.hello || { type: "hello", version: require("../../package.json").version, player: "mpv", players: ["mpv", "manatan", "steam"], schemaVersion: 1, capabilities: ["segments", "state", "todayTotals", "osd", "manatanMediaSession", "steamTracking"] };
   }
 
   expectedOrigin() {

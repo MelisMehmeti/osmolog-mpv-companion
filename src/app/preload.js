@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("osmolog", Object.freeze({
   startPairing: () => ipcRenderer.invoke("start-pairing"),
   setExtensionId: extensionId => ipcRenderer.invoke("set-extension-id", extensionId),
   setLanguage: languageCode => ipcRenderer.invoke("set-language", languageCode),
+  configureSteam: patch => ipcRenderer.invoke("configure-steam", patch),
   setRunOnlyWithMpv: enabled => ipcRenderer.invoke("set-run-only-with-mpv", enabled),
   syncNow: () => ipcRenderer.invoke("sync-now"),
   openDashboard: () => ipcRenderer.invoke("open-dashboard"),

@@ -23,6 +23,8 @@ button { cursor: pointer; }
 .titlebar { -webkit-app-region: drag; display: grid; height: 51px; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; padding-left: 20px; border-bottom: 1px solid var(--border); background: #09151e; }
 .product-lockup { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .product-lockup img { width: 18px; height: 18px; }
+.player-logos { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; margin-left: 2px; padding-left: 9px; border-left: 1px solid var(--border); }
+.player-logos img { display: block; width: 16px; height: 16px; object-fit: contain; }
 .product-name, .section-eyebrow, .setup-panel > small { color: var(--cyan); font-size: 12px; font-weight: 700; letter-spacing: .1em; }
 .connection-status { display: flex; align-items: center; gap: 8px; color: var(--secondary); font-size: 11px; letter-spacing: .06em; }
 .connection-status i, .media-copy i, .compact-overlay > i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
@@ -51,6 +53,7 @@ select:focus { border-color: var(--cyan); }
 .tracking-toolbar select { width: 142px; height: 34px; padding: 0 9px; }
 .now-playing { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 15px; min-height: 112px; padding: 17px; border: 1px solid var(--border); border-radius: 9px 9px 0 0; background: var(--surface); }
 .source-symbol { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #157c9b; border-radius: 50%; color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.source-symbol img { display: block; width: 28px; height: 28px; object-fit: contain; }
 .media-copy { min-width: 0; }
 .media-copy h1 { display: -webkit-box; max-width: 100%; margin: 0 0 8px; overflow: hidden; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .media-copy p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--green); font-size: 13px; }
@@ -92,3 +95,22 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 [hidden] { display: none !important; }
 .app-shell[data-mode="compact"] .expanded-window { display: none; }
 .app-shell[data-mode="compact"] .compact-overlay { display: grid !important; }
+.window-body { display: flex; flex-direction: column; overflow-y: auto; height: calc(100% - 103px); }
+.app-version-footer { display: flex; height: 52px; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 20px; border-top: 1px solid var(--border); background: var(--bg); color: var(--secondary); font-size: 11px; line-height: 1.4; }
+#appVersion { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.app-version-footer #updateStatus { font-size: 11px; text-align: right; }
+.setup-panel { flex: 1 0 235px; }
+.tracking-panel, .companion-lifecycle { flex-shrink: 0; }
+.steam-settings { flex-shrink: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); font-size: 12px; }
+.steam-settings summary { cursor: pointer; color: var(--text); font-weight: 700; }
+.steam-settings summary span { float: right; color: var(--cyan); }
+.steam-settings fieldset { display: grid; gap: 12px; margin: 12px 0 0; padding: 0; border: 0; min-width: 0; }
+.steam-settings label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.steam-settings label.steam-toggle { justify-content: flex-start; }
+.steam-settings input { accent-color: var(--green); }
+.steam-settings select { max-width: 260px; padding: 0 8px; }
+.steam-settings p { color: var(--secondary); line-height: 1.5; margin: 10px 0 0; }
+#steamGameControls { display: grid; gap: 12px; }
+#steamGameTitle { font-weight: 700; color: var(--text); }
+#steamPause { justify-self: start; padding: 8px 12px; border: 1px solid var(--cyan); border-radius: 7px; color: var(--cyan); background: transparent; }
+#steamFeedback:empty { display: none; }

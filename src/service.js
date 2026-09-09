@@ -9,6 +9,13 @@ const { PendingJournal } = require("./journal/journal");
 const { MpvIpcClient, PIPE_PATH } = require("./mpv/ipc-client");
 const { MpvOverlay } = require("./mpv/overlay");
 const { WindowsFocusDetector } = require("./mpv/windows-focus");
+const { ManatanMediaSessionSensor } = require("./manatan/media-session-sensor");
+const { ManatanTracker } = require("./manatan/tracker");
+const { WindowsActivitySensor } = require("./steam/windows-activity");
+const { SteamSensor } = require("./steam/sensor");
+const { SteamTracker } = require("./steam/tracker");
+const { appId } = require("./steam/library");
+const { languageCode } = require("./util");
 const { TrackingEngine } = require("./tracking/tracker");
 const { CompanionTransport, validExtensionId } = require("./transport/websocket-server");
 const { WebSocket } = require("ws");
@@ -62,6 +69,7 @@ class CompanionService extends EventEmitter {
   constructor(options = {}) {
     super();
     this.externalLogger = options.logger || null;
+    this.dependencies = options.dependencies || {};
     this.logger = {
       info: message => this.log("info", message),
       warn: message => this.log("warn", message),
@@ -75,6 +83,10 @@ class CompanionService extends EventEmitter {
     this.tracker = null;
     this.overlay = null;
     this.focus = null;
+    this.manatanSensor = null;
+    this.manatanTracker = null;
+    this.steamSensor = null;
+    this.steamTracker = null;
     this.focusTimer = null;
     this.tickTimer = null;
     this.setupTimer = null;
@@ -94,12 +106,23 @@ class CompanionService extends EventEmitter {
   }
 
   publicState() {
-    const playback = this.tracker?.snapshot?.() || {};
-    const languageCode = playback.languageCode || this.config?.defaultLanguage || null;
+    const mpvPlayback = this.tracker?.snapshot?.() || {};
+    const manatanPlayback = this.manatanTracker?.snapshot?.() || {};
+    const steam = this.steamTracker?.snapshot?.() || {};
+    const playback = steam.playing ? steam : manatanPlayback.playing ? manatanPlayback
+      : mpvPlayback.playing ? mpvPlayback
+        : steam.fileLoaded ? steam : manatanPlayback.fileLoaded ? manatanPlayback : mpvPlayback;
+    const player = playback === steam ? "steam" : playback === manatanPlayback ? "manatan" : "mpv";
+    const languageCode = playback.languageCode || (player === "steam" ? null : this.config?.defaultLanguage) || null;
     return {
       ready: this.started,
       port: this.transport?.port || this.config?.port || 0,
       mpvConnected: this.mpvConnected,
+      manatanConnected: manatanPlayback.connected === true,
+      manatanMediaSessionFound: manatanPlayback.mediaSessionFound === true,
+      manatanReaderAvailable: manatanPlayback.available === true,
+      steam,
+      player,
       extensionConnected: (this.transport?.clients?.size || 0) > 0,
       paired: validExtensionId(this.config?.extensionId),
       pairingSeconds: this.transport?.pairingRemaining?.() || 0,
@@ -108,18 +131,46 @@ class CompanionService extends EventEmitter {
       runOnlyWithMpv: this.config?.runOnlyWithMpv === true,
       mpvConfigDirectoryDetected: Boolean(this.mpvConfigDirectory || this.config?.mpvConfigDirectory),
       playing: playback.playing === true,
-      paused: this.tracker?.properties?.pause === true,
+      paused: playback.paused === true || (player === "mpv" && this.tracker?.properties?.pause === true),
       mode: playback.mode || "",
       languageCode,
       title: playback.title || "",
       sessionSeconds: Math.max(0, Number(playback.sessionSeconds) || 0),
       sessionActiveSeconds: Math.max(0, Number(playback.sessionActiveSeconds) || 0),
       sessionPassiveSeconds: Math.max(0, Number(playback.sessionPassiveSeconds) || 0),
-      speed: Math.max(0, Number(this.tracker?.properties?.speed) || 1),
+      speed: Math.max(0, Number(playback.speed) || Number(this.tracker?.properties?.speed) || 1),
       todaySeconds: Math.max(0, Number(this.overlay?.todayTotals?.get(languageCode)) || 0),
-      fileLoaded: this.tracker?.fileLoaded === true,
-      fullscreen: this.tracker?.properties?.fullscreen === true
+      fileLoaded: playback.fileLoaded === true || (player === "mpv" && this.tracker?.fileLoaded === true),
+      fullscreen: player === "mpv" && this.tracker?.properties?.fullscreen === true
     };
+  }
+
+  transportState() {
+    const state = this.publicState();
+    return {
+      type: "state",
+      player: state.player,
+      mpvConnected: state.mpvConnected,
+      manatanConnected: state.manatanConnected,
+      manatanMediaSessionFound: state.manatanMediaSessionFound,
+      manatanReaderAvailable: state.manatanReaderAvailable,
+      steam: state.steam,
+      playing: state.playing,
+      paused: state.paused,
+      languageCode: state.languageCode,
+      mode: state.mode,
+      title: state.title,
+      sessionSeconds: state.sessionSeconds,
+      sessionActiveSeconds: state.sessionActiveSeconds,
+      sessionPassiveSeconds: state.sessionPassiveSeconds,
+      speed: state.speed,
+      fileLoaded: state.fileLoaded
+    };
+  }
+
+  broadcastPlaybackState() {
+    this.transport?.broadcast?.(this.transportState());
+    this.publish();
   }
 
   publish() {
@@ -140,10 +191,12 @@ class CompanionService extends EventEmitter {
       onWarning: message => this.logger.warn(message)
     });
     this.journal.open();
-    const recoveredDraft = this.journal.consumeDraft();
-    if (recoveredDraft?.eventId && Number(recoveredDraft.realSeconds) > 0) {
+    const recoveredDrafts = this.journal.consumeDrafts();
+    for (const recoveredDraft of recoveredDrafts) {
+      if (!recoveredDraft?.eventId || Number(recoveredDraft.realSeconds) <= 0) continue;
       this.journal.append(recoveredDraft);
-      this.logger.info("Recovered an interrupted in-progress segment.");
+      this.journal.clearDraft(recoveredDraft.player || "mpv");
+      this.logger.info(`Recovered an interrupted ${recoveredDraft.player || "mpv"} segment.`);
     }
 
     this.transport = new CompanionTransport({ port: this.config.port, extensionId: this.config.extensionId, logger: this.logger });
@@ -162,10 +215,14 @@ class CompanionService extends EventEmitter {
       this.logger.info("Waiting for the Osmolog dashboard to complete automatic first-run pairing.");
     }
 
-    this.mpv = new MpvIpcClient({ pipePath: PIPE_PATH, logger: this.logger });
+    this.mpv = this.dependencies.mpv || new MpvIpcClient({ pipePath: PIPE_PATH, logger: this.logger });
     this.tracker = new TrackingEngine({ config: this.config });
     this.overlay = new MpvOverlay(this.mpv, { config: this.config, logger: this.logger });
-    this.focus = new WindowsFocusDetector({ logger: this.logger });
+    this.focus = this.dependencies.focus || new WindowsFocusDetector({ logger: this.logger });
+    this.manatanSensor = this.dependencies.manatanSensor || new ManatanMediaSessionSensor({ logger: this.logger });
+    this.manatanTracker = new ManatanTracker({ config: this.config, focus: this.focus });
+    this.steamSensor = this.dependencies.steamSensor || new SteamSensor({ focus: this.focus, activity: new WindowsActivitySensor({ focus: this.focus, logger: this.logger }) });
+    this.steamTracker = new SteamTracker({ config: this.config, sensor: this.steamSensor });
 
     const deliver = event => {
       this.journal.append(event);
@@ -173,11 +230,8 @@ class CompanionService extends EventEmitter {
       this.publish();
     };
     this.tracker.on("segment", deliver);
-    this.tracker.on("checkpoint", draft => this.journal.saveDraft(draft));
-    this.tracker.on("state", state => {
-      this.transport.broadcast({ type: "state", mpvConnected: this.mpvConnected, ...state });
-      this.publish();
-    });
+    this.tracker.on("checkpoint", draft => draft ? this.journal.saveDraft(draft) : this.journal.clearDraft("mpv"));
+    this.tracker.on("state", () => this.broadcastPlaybackState());
     this.tracker.on("file-loaded", state => {
       void this.overlay.toast(state);
       void this.overlay.render(state);
@@ -188,13 +242,27 @@ class CompanionService extends EventEmitter {
       void this.overlay.remove();
       this.publish();
     });
+    this.manatanTracker.on("segment", deliver);
+    this.manatanTracker.on("checkpoint", draft => draft ? this.journal.saveDraft(draft) : this.journal.clearDraft("manatan"));
+    this.manatanTracker.on("state", () => this.broadcastPlaybackState());
+    this.manatanTracker.on("connection", () => this.broadcastPlaybackState());
+    this.manatanSensor.on("state", state => this.manatanTracker.updateSensor(state));
+    this.steamTracker.on("segment", deliver);
+    this.steamTracker.on("checkpoint", draft => draft ? this.journal.saveDraft(draft) : this.journal.clearDraft("steam"));
+    this.steamTracker.on("connection", () => this.broadcastPlaybackState());
 
     this.transport.on("client", socket => {
       for (const event of this.journal.list()) this.transport.send(socket, { type: "segment", ...event });
-      this.transport.send(socket, { type: "state", mpvConnected: this.mpvConnected, ...this.tracker.snapshot() });
+      this.transport.send(socket, this.transportState());
       this.publish();
     });
     this.transport.on("message", (message, socket) => {
+      if (message?.type === "steamControl" && /^[a-z0-9-]{1,80}$/i.test(String(message.requestId || ""))) {
+        let result;
+        try { result = this.configureSteam(message.patch); }
+        catch { result = { ok: false, message: "Could not save Steam settings. Try again." }; }
+        this.transport.send(socket, { type: "steamControlResult", requestId: message.requestId, ok: result.ok === true, message: result.message || "" });
+      }
       if (message?.type === "ack" && this.journal.acknowledge(String(message.eventId || ""))) {
         this.transport.send(socket, { type: "acknowledged", eventId: message.eventId });
       }
@@ -224,7 +292,7 @@ class CompanionService extends EventEmitter {
       this.mpvConnected = false;
       this.logger.info("mpv disconnected; waiting for it to return.");
       this.tracker.endFile();
-      this.transport.broadcast({ type: "state", mpvConnected: false, playing: false, languageCode: null, mode: null });
+      this.broadcastPlaybackState();
       this.publish();
       if (this.connectedOnce && this.config?.runOnlyWithMpv === true) this.scheduleExitAfterMpv();
     });
@@ -256,18 +324,24 @@ class CompanionService extends EventEmitter {
       this.config = next;
       this.transport.updateExtensionId(next.extensionId);
       this.tracker.updateConfig(next);
+      this.manatanTracker.updateConfig(next);
+      this.steamTracker.updateConfig(next);
       this.overlay.updateConfig(next);
       if (portChanged) this.logger.warn("Port changes take effect after restarting the companion.");
       this.publish();
     });
 
     this.mpv.start();
+    this.manatanSensor.start();
+    this.steamSensor.setEnabled(this.config.steam.enabled);
     this.tickTimer = setInterval(() => {
       this.tracker.tick();
+      this.manatanTracker.tick();
+      this.steamTracker.tick();
       this.publish();
     }, 1000);
     this.setupTimer = setTimeout(() => {
-      if (this.mpv.connected) return;
+      if (this.mpv.connected || this.config?.steam?.enabled) return;
       const line = "input-ipc-server=\\\\.\\pipe\\osmolog-mpv";
       this.logger.warn(mpvConfigContainsPipe()
         ? "The mpv IPC setting is present, but the named pipe is unavailable. Restart mpv and make sure another instance is not already using the pipe."
@@ -295,10 +369,50 @@ class CompanionService extends EventEmitter {
   }
 
   setLanguage(languageCode) {
-    const changedCurrentFile = this.tracker.setLanguageOverride(languageCode);
+    if (this.publicState().player === "steam" && this.steamTracker?.game) {
+      const result = this.configureSteam({ appId: this.steamTracker.game.appId, language: languageCode });
+      return { ...result, scope: "game", state: this.publicState() };
+    }
+    const changedCurrentFile = this.tracker.setLanguageOverride(languageCode) ||
+      this.manatanTracker?.engine?.setLanguageOverride?.(languageCode) === true;
     this.config = this.configStore.update({ defaultLanguage: languageCode });
     this.publish();
     return { ok: true, scope: changedCurrentFile ? "file-and-default" : "default", state: this.publicState() };
+  }
+
+  configureSteam(patch = {}) {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) return { ok: false, message: "Invalid Steam settings." };
+    const previous = this.config.steam || { enabled: false, idleSeconds: 300, games: {} };
+    const next = { ...previous, games: { ...previous.games } };
+    if ("enabled" in patch) {
+      if (typeof patch.enabled !== "boolean") return { ok: false, message: "Invalid tracking setting." };
+      next.enabled = patch.enabled;
+    }
+    if ("idleSeconds" in patch) {
+      if (!Number.isInteger(patch.idleSeconds) || (patch.idleSeconds !== 0 && (patch.idleSeconds < 30 || patch.idleSeconds > 3600)))
+        return { ok: false, message: "Choose an idle limit between 30 seconds and 60 minutes, or turn it off." };
+      next.idleSeconds = patch.idleSeconds;
+    }
+    if ("language" in patch || "excluded" in patch) {
+      const id = appId(patch.appId);
+      if (!id || id !== this.steamTracker?.game?.appId) return { ok: false, message: "That game is no longer selected. Refresh and try again." };
+      const game = { ...next.games[id] };
+      if ("language" in patch) {
+        if (patch.language !== "" && !languageCode(patch.language)) return { ok: false, message: "Choose a valid game language." };
+        game.language = languageCode(patch.language) || "";
+      }
+      if ("excluded" in patch) {
+        if (typeof patch.excluded !== "boolean") return { ok: false, message: "Invalid game setting." };
+        game.excluded = patch.excluded;
+      }
+      next.games[id] = game;
+    }
+    if ("paused" in patch && (typeof patch.paused !== "boolean" || patch.appId !== this.steamTracker?.game?.appId))
+      return { ok: false, message: "That game is no longer selected. Refresh and try again." };
+    if (Object.keys(patch).some(key => !["paused", "appId"].includes(key))) this.config = this.configStore.update({ steam: next });
+    if ("paused" in patch) this.steamTracker?.setPaused(patch.paused);
+    this.broadcastPlaybackState();
+    return { ok: true, state: this.publicState() };
   }
 
   setRunOnlyWithMpv(enabled, mpvConfigDirectory = "") {
@@ -331,12 +445,12 @@ class CompanionService extends EventEmitter {
     if (this.mpvExitTimer || this.shuttingDown) return;
     this.mpvExitTimer = setTimeout(async () => {
       this.mpvExitTimer = null;
-      if (this.mpvConnected || this.shuttingDown || this.config?.runOnlyWithMpv !== true) return;
+      if (this.mpvConnected || this.manatanTracker?.snapshot?.().connected || this.config?.steam?.enabled || this.shuttingDown || this.config?.runOnlyWithMpv !== true) return;
       const deadline = Date.now() + this.deliveryGraceMs;
       while ((this.transport?.clients?.size || 0) > 0 && (this.journal?.list?.().length || 0) > 0 && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 50));
       }
-      if (!this.mpvConnected && !this.shuttingDown && this.config?.runOnlyWithMpv === true) {
+      if (!this.mpvConnected && !this.manatanTracker?.snapshot?.().connected && !this.config?.steam?.enabled && !this.shuttingDown && this.config?.runOnlyWithMpv === true) {
         this.emit("exit-requested", "mpv closed");
       }
     }, this.mpvExitDelayMs);
@@ -362,6 +476,10 @@ class CompanionService extends EventEmitter {
     clearTimeout(this.setupTimer);
     clearTimeout(this.mpvExitTimer);
     this.tracker?.endFile();
+    this.manatanTracker?.end();
+    this.manatanSensor?.stop();
+    this.steamTracker?.end();
+    this.steamSensor?.stop();
     await this.overlay?.remove();
     this.mpv?.stop();
     this.configStore.close();

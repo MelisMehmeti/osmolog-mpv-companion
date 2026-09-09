@@ -18,7 +18,7 @@ let expandedBounds = null;
 let compactBounds = null;
 let windowMode = "expanded";
 let hiddenForFullscreen = false;
-let latestState = { ready: false };
+let latestState = { ready: false, appVersion: app.getVersion() };
 let launcherOptions = null;
 let detectedMpvConfigDirectory = "";
 let launcherStatus = { status: "off", message: "Automatic MPV start is off." };
@@ -31,6 +31,7 @@ function sendState(state = latestState) {
   const distribution = isPortableBuild(process.env) ? "portable" : app.isPackaged ? "installed" : "development";
   latestState = {
     ...state,
+    appVersion: app.getVersion(),
     autoLaunchStatus: launcherStatus.status,
     autoLaunchMessage: launcherStatus.message,
     distribution,
@@ -276,6 +277,7 @@ function registerIpc() {
   ipcMain.handle("start-pairing", () => service.startPairing());
   ipcMain.handle("set-extension-id", (_event, extensionId) => service.setExtensionId(extensionId));
   ipcMain.handle("set-language", (_event, languageCode) => service.setLanguage(languageCode));
+  ipcMain.handle("configure-steam", (_event, patch) => service.configureSteam(patch));
   ipcMain.handle("open-dashboard", () => openDashboard());
   ipcMain.handle("set-run-only-with-mpv", (_event, enabled) => enabled ? enableRunOnlyWithMpv() : disableRunOnlyWithMpv());
   ipcMain.handle("sync-now", () => syncNow());

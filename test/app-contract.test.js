@@ -79,7 +79,9 @@ test("before-connection UI automatically discovers Osmolog without exposing exte
 
   assert.match(html, /Open Osmolog/);
   assert.doesNotMatch(html, /extensionIdInput|Chrome extension ID/);
-  assert.match(renderer, /Connected — waiting for MPV/);
+  assert.match(renderer, /Connected — waiting for a player/);
+  assert.match(renderer, /current\.mpvConnected && !current\.manatanConnected/);
+  assert.match(renderer, /state\.player === "manatan"/);
   assert.match(renderer, /title: "Reconnecting to Osmolog…"/);
   assert.match(renderer, /the dashboard does not need to be open/);
   assert.match(renderer, /title: "Connect Osmolog once"/);

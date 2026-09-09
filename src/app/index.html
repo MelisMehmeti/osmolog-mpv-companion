@@ -10,7 +10,7 @@
   <main id="appShell" class="app-shell" data-mode="expanded">
     <section id="expandedWindow" class="expanded-window" aria-label="Osmolog Companion">
       <header class="titlebar">
-        <span class="product-lockup"><img src="../../assets/osmolog-icon-small.svg" alt=""><span class="product-name">OSMOLOG COMPANION</span></span>
+        <span class="product-lockup"><img src="../../assets/osmolog-icon-small.svg" alt=""><span class="product-name">OSMOLOG COMPANION</span><span class="player-logos" aria-label="Supported players"><img src="../../assets/mpv.svg" alt="MPV" title="MPV"><img src="../../assets/manatan.png" alt="Manatan" title="Manatan"><img src="../../assets/steam.svg" alt="Steam" title="Steam"></span></span>
         <span id="connectionStatus" class="connection-status"><i></i><b>STARTING</b></span>
         <span class="window-actions">
           <button id="minimizeButton" type="button" aria-label="Minimize to compact overlay">−</button>
@@ -31,30 +31,50 @@
 
         <section id="trackingPanel" class="tracking-panel" hidden>
           <div class="tracking-toolbar">
-            <div class="section-eyebrow">MPV · TRACKING</div>
+            <div id="trackingSourceEyebrow" class="section-eyebrow">LOCAL MEDIA · TRACKING</div>
             <label for="languageSelect"><span>Language</span><select id="languageSelect"><option value="ja">Japanese</option><option value="en">English</option><option value="sv">Swedish</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ko">Korean</option><option value="zh">Chinese</option></select></label>
           </div>
           <div class="now-playing">
-            <div class="source-symbol" aria-hidden="true">MPV</div>
+            <div id="sourceSymbol" class="source-symbol" aria-hidden="true"><img id="activePlayerIcon" src="../../assets/mpv.svg" alt=""></div>
             <div class="media-copy"><h1 id="mediaTitle">No media loaded</h1><p><i id="modeDot"></i><span id="modeLabel">Ready to track</span></p></div>
           </div>
           <div class="metric-grid">
-            <div><small>THIS FILE</small><strong id="fileTime">0s</strong></div>
+            <div><small id="sessionTimeLabel">THIS FILE</small><strong id="fileTime">0s</strong></div>
             <div><small id="todayLabel" title="All Osmolog sources for this language">OSMOLOG TODAY · JA</small><strong id="todayTime">0s</strong></div>
             <div><small>PLAYBACK SPEED</small><strong id="speedValue">1.0×</strong></div>
           </div>
           <div class="attention-split"><div><span id="activeLabel">Active 0m</span><span id="passiveLabel">Passive 0m</span></div><div class="split-track"><i id="activeTrack"></i><em id="passiveTrack"></em></div></div>
           <footer><span id="footerStatus">Closing keeps tracking in the tray.</span><span class="footer-actions"><button id="pairAgain" type="button" hidden>RECONNECT OSMOLOG</button><button id="openDashboard" type="button">OPEN DASHBOARD</button></span></footer>
         </section>
+        <details id="steamSettings" class="steam-settings">
+          <summary>Steam game tracking <span id="steamSummary">Off</span></summary>
+          <fieldset id="steamControls">
+            <label class="steam-toggle"><input id="steamEnabled" type="checkbox">Track Steam games</label>
+            <p id="steamState" role="status">Steam tracking is off.</p>
+            <label for="steamIdleSeconds">Stop after no input<select id="steamIdleSeconds"><option value="0">Off · count while focused</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select></label>
+            <div id="steamGameControls" hidden>
+              <p id="steamGameTitle"></p>
+              <label for="steamLanguage">Language for this game<select id="steamLanguage"><option value="">Use Steam setting</option></select></label>
+              <label class="steam-toggle"><input id="steamExcluded" type="checkbox">Exclude this game</label>
+              <button id="steamPause" type="button">Pause tracking</button>
+            </div>
+          </fieldset>
+          <p>Steam’s configured language may differ from in-game audio or text. Your language choice is saved per game.</p>
+          <p>Background and idle time do not count. In-game pause menus cannot be detected; use Pause tracking for breaks. For long cutscenes or controllers without XInput, increase or turn off the idle limit.</p>
+          <p id="steamFeedback" role="status"></p>
+        </details>
         <section class="companion-lifecycle" aria-label="Companion lifecycle and sync">
           <label for="runOnlyWithMpvToggle">
             <input id="runOnlyWithMpvToggle" type="checkbox">
             <span><b>Automatically open when MPV opens</b><small id="autoLaunchDescription">It closes safely when MPV closes.</small></span>
           </label>
           <div class="companion-lifecycle-actions"><span id="autoLaunchStatus" role="status">Off</span><button id="syncNowButton" type="button">Sync now</button></div>
-          <p id="updateStatus" role="status" aria-live="polite"></p>
           <p id="lifecycleFeedback" role="status" aria-live="polite"></p>
         </section>
+      </div>
+      <div class="app-version-footer" aria-label="Companion version and updates">
+        <span id="appVersion">Osmolog Companion</span>
+        <p id="updateStatus" role="status" aria-live="polite"></p>
       </div>
     </section>
 
