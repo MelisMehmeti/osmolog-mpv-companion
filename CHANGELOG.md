@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.6 — 2026-09-09
+
 - Redesign Home and all Settings tabs with centered integration statuses, a daily total and sync panel, and consistent controls.
 - Keep sync feedback and inline update states accurate without duplicate footer statuses.
 - Correct Windows startup verification for Companion's named login entry.
