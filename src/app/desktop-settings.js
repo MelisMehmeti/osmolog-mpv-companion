@@ -41,9 +41,19 @@ function createDesktopSettings({ app, service, setMpvStartup, platform = process
           launcherChanged = true;
         }
         if (changesLogin) {
-          app.setLoginItemSettings({ ...loginOptions(app, environment), openAtLogin: next.startWithWindows });
-          const actual = app.getLoginItemSettings(loginOptions(app, environment));
-          if (actual.openAtLogin !== next.startWithWindows || (next.startWithWindows && actual.executableWillLaunchAtLogin === false)) throw new Error("Windows blocked automatic startup. Enable Osmolog Companion in Windows Startup Apps and try again.");
+          const options = loginOptions(app, environment);
+          app.setLoginItemSettings({ ...options, openAtLogin: next.startWithWindows, enabled: next.startWithWindows });
+          // Electron checks openAtLogin against its AppUserModelID, ignoring our
+          // custom entry name. Query the named user entry instead. The launchItems
+          // lookup parses path as a command line, so spaces require quotes.
+          const actual = app.getLoginItemSettings({ ...options, path: `"${options.path}"` });
+          const entry = actual.launchItems?.find(item => item.name === options.name && item.scope === "user");
+          if (next.startWithWindows ? !entry : Boolean(entry)) {
+            throw new Error(next.startWithWindows ? "Could not register Companion to start with Windows. Try again; if it persists, check your device's startup restrictions." : "Could not remove Companion from Windows startup. Try again.");
+          }
+          if (next.startWithWindows && !entry.enabled) {
+            throw new Error("Windows kept Companion's startup entry disabled. Your device's startup settings or administrator may be restricting it.");
+          }
         }
         service.config = service.configStore.update({ desktop: next });
         if (next.startWithWindows || next.openWith.steam || next.openWith.manatan) {

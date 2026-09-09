@@ -6,3 +6,5 @@ dist-audit-*/
 .env
 .env.*
 !.env.example
+
+artifacts/

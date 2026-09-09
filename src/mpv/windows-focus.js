@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("node:path");
+let enumWindowsCallback;
 
 class WindowsFocusDetector {
   constructor(options = {}) {
@@ -22,6 +23,9 @@ class WindowsFocusDetector {
       this.OpenProcess = kernel32.func("void* __stdcall OpenProcess(uint32 access, bool inheritHandle, uint32 processId)");
       this.QueryFullProcessImageNameW = kernel32.func("bool __stdcall QueryFullProcessImageNameW(void* process, uint32 flags, _Out_ wchar_t* name, _Inout_ uint32* size)");
       this.CloseHandle = kernel32.func("bool __stdcall CloseHandle(void* handle)");
+      enumWindowsCallback ||= koffi.proto("bool __stdcall OsmologEnumWindowsCallback(void* window, intptr_t data)");
+      this.EnumWindows = user32.func("bool __stdcall EnumWindows(OsmologEnumWindowsCallback* callback, intptr_t data)");
+      this.IsWindowVisible = user32.func("bool __stdcall IsWindowVisible(void* window)");
       this.available = true;
     } catch (error) {
       this.logger.warn(`Windows focus fallback is unavailable: ${error.message}`);
@@ -49,6 +53,24 @@ class WindowsFocusDetector {
     this.GetWindowThreadProcessId(window, pid);
     const executable = this.processImage(pid[0]);
     return executable ? { pid: pid[0], path: executable } : null;
+  }
+
+  windowProcesses() {
+    if (!this.available || !this.EnumWindows) return [];
+    const processes = new Map();
+    let visited = 0;
+    // Only inspect executable paths for visible top-level windows. This also
+    // finds games behind Companion; it never reads titles or process memory.
+    this.EnumWindows(window => {
+      if (++visited > 1024) return false;
+      if (!this.IsWindowVisible(window)) return true;
+      const pid = [0];
+      this.GetWindowThreadProcessId(window, pid);
+      if (!pid[0] || processes.has(pid[0])) return true;
+      processes.set(pid[0], this.processImage(pid[0]));
+      return true;
+    }, 0);
+    return [...processes].filter(([, executable]) => executable).map(([pid, executable]) => ({ pid, path: executable }));
   }
 
   processImage(pid) {

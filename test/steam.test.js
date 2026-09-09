@@ -90,6 +90,67 @@ test("disabled scanning cannot finish late and restore private library data", as
   assert.equal(sensor.sample().game, null);
 });
 
+test("an already-open game is discovered after library loading without regaining focus or restarting", async t => {
+  const gamePath = "D:\\Steam\\common\\RimWorld\\RimWorldWin64.exe";
+  const game = { appId: "294100", title: "RimWorld", installPath: "D:\\Steam\\common\\RimWorld", configuredLanguage: "en" };
+  let finish, runningPath = gamePath;
+  const sensor = new SteamSensor({
+    discover: async () => "D:\\Steam",
+    loadLibrary: () => new Promise(resolve => { finish = resolve; }),
+    activity: { sample: () => ({ available: true, foreground: null, idleSeconds: 0 }) },
+    focus: { processImage: () => runningPath, windowProcesses: () => runningPath ? [{ pid: 123, path: runningPath }] : [] }
+  });
+  t.after(() => sensor.stop());
+  sensor.setEnabled(true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sensor.sample().game, null);
+  finish([game]);
+  await new Promise(resolve => setImmediate(resolve));
+  const sample = sensor.sample();
+  assert.equal(sample.game.appId, "294100");
+  assert.equal(sample.focused, false, "discovering a background game must not credit active time");
+  assert(!JSON.stringify(sample).includes("D:"), "window paths stay local to the sensor");
+  runningPath = "";
+  assert.equal(sensor.sample().game, null);
+});
+
+test("background discovery retries, ignores helpers and similarly named folders, and does not guess between games", () => {
+  let now = 0, scans = 0, windows = [], foreground = null;
+  const sensor = new SteamSensor({ now: () => now,
+    activity: { sample: () => ({ available: true, foreground, idleSeconds: 0 }) },
+    focus: { processImage: () => "", windowProcesses: () => { scans++; return windows; } }
+  });
+  sensor.enabled = sensor.installed = true;
+  sensor.games = ["Game", "Second"].map((title, index) => ({ appId: String(index + 1), title, installPath: `D:\\Steam\\common\\${title}` }));
+  assert.equal(sensor.sample().game, null);
+  windows = [{ pid: 1, path: "D:\\Steam\\common\\Game\\launcher.exe" }, { pid: 2, path: "D:\\Steam\\common\\Game Extra\\play.exe" }];
+  now = 1000; sensor.sample(); assert.equal(scans, 1, "native window scans are throttled");
+  now = 5000; assert.equal(sensor.sample().game, null);
+  windows = [{ pid: 3, path: "D:\\Steam\\common\\Game\\play.exe" }, { pid: 4, path: "D:\\Steam\\common\\Second\\play.exe" }];
+  now = 10000; assert.equal(sensor.sample().game, null, "multiple background games require foreground selection");
+  foreground = windows[1]; assert.equal(sensor.sample().game.appId, "2");
+  assert.equal(sensor.sample().focused, true);
+  foreground = null; windows = [windows[0]];
+  now = 15000; assert.equal(sensor.sample().game.appId, "1", "a newly opened game is found without restarting");
+});
+
+test("re-enabling Steam during a pending scan starts a fresh library scan immediately", async t => {
+  const pending = [];
+  const sensor = new SteamSensor({ discover: () => new Promise(resolve => pending.push(resolve)),
+    loadLibrary: async directory => [{ appId: directory === "new" ? "2" : "1" }] });
+  t.after(() => sensor.stop());
+  sensor.setEnabled(true);
+  sensor.setEnabled(false);
+  sensor.setEnabled(true);
+  pending[0]("old");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(sensor.games, [], "the stale scan cannot populate the newly enabled sensor");
+  assert.equal(pending.length, 2, "a fresh scan starts without waiting for the 30-second timer");
+  pending[1]("new");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(sensor.games, [{ appId: "2" }]);
+});
+
 test("gaming switches between real active and passive time, while idle and manual pauses stop counting", () => {
   const f = fixture();
   f.run(10);

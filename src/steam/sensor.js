@@ -18,6 +18,8 @@ class SteamSensor extends EventEmitter {
     this.scanning = false;
     this.generation = 0;
     this.error = "";
+    this.now = options.now || Date.now;
+    this.nextProcessScanAt = 0;
   }
 
   setEnabled(enabled) {
@@ -26,6 +28,7 @@ class SteamSensor extends EventEmitter {
     this.generation++;
     clearInterval(this.timer);
     this.current = null;
+    this.nextProcessScanAt = 0;
     if (!this.enabled) { this.games = []; this.installed = false; this.error = ""; return; }
     void this.refresh();
     this.timer = setInterval(() => void this.refresh(), 30000);
@@ -43,9 +46,14 @@ class SteamSensor extends EventEmitter {
       this.installed = Boolean(directory);
       this.games = games;
       this.error = "";
+      this.nextProcessScanAt = 0;
     } catch {
       if (generation === this.generation) this.error = "Could not read the Steam library. Osmolog will retry.";
-    } finally { this.scanning = false; }
+    } finally {
+      this.scanning = false;
+      // Re-enabling during an older scan must start a fresh scan immediately.
+      if (this.enabled && generation !== this.generation) void this.refresh();
+    }
   }
 
   sample() {
@@ -66,6 +74,21 @@ class SteamSensor extends EventEmitter {
           const refreshed = this.games.find(item => item.appId === this.current.appId);
           if (refreshed) this.current = { ...this.current, ...refreshed };
         }
+      }
+      if (!this.current && this.games.length && this.now() >= this.nextProcessScanAt) {
+        this.nextProcessScanAt = this.now() + 5000;
+        // Recover a game that was already open when the library became ready,
+        // even if Companion or another app now has focus. Never guess between
+        // multiple games: foreground detection will select the one being used.
+        const matches = [];
+        try {
+          for (const process of this.focus?.windowProcesses?.() || []) {
+            if (!process.path || helper.test(path.win32.basename(process.path))) continue;
+            const candidate = this.games.find(item => containsPath(item.installPath, process.path));
+            if (candidate) matches.push({ ...candidate, pid: process.pid, path: process.path });
+          }
+        } catch { /* Foreground detection remains usable; retry on the next scan. */ }
+        if (matches.length && matches.every(item => item.appId === matches[0].appId)) this.current = matches[0];
       }
       return { ...sample, foreground: undefined, installed: this.installed, error: this.error,
         focused: Boolean(game), game: this.current ? {

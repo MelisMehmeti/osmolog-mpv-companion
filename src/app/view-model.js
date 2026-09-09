@@ -15,9 +15,12 @@
     return { color: "stopped", label: reasons[playback.reason] || (playback.paused ? "Playback paused" : "Waiting for playback") };
   }
   function connection(playback = {}) {
-    if (!playback.connected) return { label: "Waiting", color: "waiting" };
-    if (playback.playing && ["active", "passive"].includes(playback.mode)) return { label: "Now tracking", color: playback.mode };
-    return { label: "Connected", color: "active" };
+    if (playback.error) return { label: "Error", color: "error" };
+    if (playback.enabled === false || playback.reason === "disabled") return { label: "Off", color: "attention" };
+    if (playback.reason === "unavailable") return { label: "Unavailable", color: "attention" };
+    if (!playback.connected) return { label: "Idle", color: "waiting" };
+    if (playback.playing && ["active", "passive"].includes(playback.mode)) return { label: "Now tracking", color: "detected" };
+    return { label: "Connected", color: "detected" };
   }
   const api = { duration, mode, connection };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

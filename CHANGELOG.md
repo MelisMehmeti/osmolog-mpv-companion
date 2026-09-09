@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Redesign Home and all Settings tabs with centered integration statuses, a daily total and sync panel, and consistent controls.
+- Keep sync feedback and inline update states accurate without duplicate footer statuses.
+- Correct Windows startup verification for Companion's named login entry.
+- Discover already-running Steam games after library loading and retry detection without requiring a restart.
+
 ## 1.2.5 — 2026-09-09
 
 - Use a compact, resizable window with MPV, Steam, and Manatan connection statuses across the top.

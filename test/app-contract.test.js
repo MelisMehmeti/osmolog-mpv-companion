@@ -3,9 +3,9 @@ const test=require('node:test');const assert=require('node:assert/strict');const
 const {mode,connection,duration}=require('../src/app/view-model');
 const read=name=>fs.readFileSync(path.join(__dirname,'../src/app',name),'utf8');
 test('player status distinguishes discovery, connection, and actual counting',()=>{
-  assert.equal(connection({connected:false,enabled:true}).label,'Waiting');
+  assert.equal(connection({connected:false,enabled:true}).label,'Idle');
   assert.equal(connection({connected:true,playing:false}).label,'Connected');
-  assert.deepEqual(connection({connected:true,playing:true,mode:'passive'}),{label:'Now tracking',color:'passive'});
+  assert.deepEqual(connection({connected:true,playing:true,mode:'passive'}),{label:'Now tracking',color:'detected'});
 });
 test('activity circle is green for active, amber for passive, gray for every stopped state',()=>{
   assert.equal(mode({playing:true,mode:'active'}).color,'active');assert.equal(mode({playing:true,mode:'passive'}).color,'passive');
