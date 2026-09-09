@@ -29,6 +29,22 @@ test("real Companion transport confirms controls, journals Steam time, replays o
   let socket;
   t.after(async () => { socket?.terminate(); await service.shutdown("test"); await fs.rm(directory, { recursive: true, force: true }); });
   await service.start();
+  // Keep real transport and journaling, but do not measure CI scheduler delays
+  // as game time. The counting clock is advanced explicitly by this fixture.
+  clearInterval(service.tickTimer);
+  let mono = 0n;
+  let wall = Date.now();
+  service.steamTracker.engine.monotonicNow = () => mono;
+  service.steamTracker.engine.wallNow = () => wall;
+  service.steamTracker.engine.lastMono = mono;
+  service.steamTracker.engine.lastWall = wall;
+  const waitFor = async predicate => {
+    const deadline = Date.now() + 5000;
+    while (!predicate()) {
+      if (Date.now() >= deadline) throw new Error("Timed out waiting for transport delivery");
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+  };
   const connect = async () => {
     const client = new WebSocket(`ws://127.0.0.1:${service.transport.port}`, { origin: `chrome-extension://${extensionId}` });
     const received = [];
@@ -47,20 +63,22 @@ test("real Companion transport confirms controls, journals Steam time, replays o
   assert.equal((await control({ enabled: true })).ok, true);
   assert.equal(service.publicState().player, "steam");
   assert.equal(service.config.steam.enabled, true);
-  await new Promise(resolve => setTimeout(resolve, 1150));
+  mono += 2_000_000_000n;
+  wall += 2000;
+  service.steamTracker.tick();
   assert.equal((await control({ appId: "10", paused: true })).ok, true);
   assert.equal(service.publicState().steam.reason, "manual-pause");
   const queued = service.journal.list();
   assert.equal(queued.length, 1);
   assert.equal(queued[0].player, "steam");
-  assert(queued[0].realSeconds >= 1 && queued[0].realSeconds < 3);
+  assert.equal(queued[0].realSeconds, 2);
   assert(first.received.some(message => message.type === "segment" && message.eventId === queued[0].eventId));
   socket.close(); await once(socket, "close");
   const second = await connect(); socket = second.client;
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await waitFor(() => second.received.some(message => message.type === "segment" && message.eventId === queued[0].eventId));
   assert(second.received.some(message => message.type === "segment" && message.eventId === queued[0].eventId));
   socket.send(JSON.stringify({ type: "ack", eventId: queued[0].eventId }));
-  await new Promise(resolve => setTimeout(resolve, 30));
+  await waitFor(() => service.journal.list().length === 0);
   assert.equal(service.journal.list().length, 0);
   assert.equal((await control({ appId: "10", language: "en" })).ok, true);
   assert.equal(service.config.defaultLanguage, "ja");
